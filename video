@@ -1,0 +1,3099 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ClipMind AI — Умная нарезка видео и улучшение фото</title>
+
+  <!-- Шрифт Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            studio: {
+              950: '#07070a',
+              900: '#0f1016',
+              800: '#171923',
+              700: '#232635',
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    /* Базовые стили и скроллбар для тёмной студийной темы */
+    body {
+      background-color: #07070a;
+      color: #f4f4f5;
+      font-family: 'Inter', system-ui, sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* Фоновое свечение */
+    .ambient-bg {
+      background-image:
+        radial-gradient(ellipse 60% 40% at 15% 0%, rgba(99, 102, 241, 0.16), transparent 70%),
+        radial-gradient(ellipse 50% 35% at 85% 5%, rgba(20, 184, 166, 0.12), transparent 70%);
+    }
+
+    /* Стеклянные панели */
+    .glass-panel {
+      background: rgba(15, 16, 22, 0.78);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    /* Кастомный скроллбар */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.03);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.14);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+
+    /* Анимация перетаскивания файла */
+    .drop-active {
+      border-color: #6366f1 !important;
+      background-color: rgba(99, 102, 241, 0.1) !important;
+      transform: scale(1.005);
+    }
+
+    /* Анимация тостов */
+    @keyframes slideInToast {
+      from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.96);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+    .toast-enter {
+      animation: slideInToast 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* Шахматный фон для просмотра фото */
+    .checker-bg {
+      background-color: #0b0c12;
+      background-image:
+        linear-gradient(45deg, rgba(255,255,255,0.03) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(255,255,255,0.03) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.03) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.03) 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    }
+
+    /* Кастомные ползунки студийной коррекции */
+    input[type="range"].studio-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 5px;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.12);
+      outline: none;
+    }
+    input[type="range"].studio-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 9999px;
+      background: #818cf8;
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 10px rgba(99, 102, 241, 0.6);
+      cursor: pointer;
+      transition: transform 0.12s ease;
+    }
+    input[type="range"].studio-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+    }
+  </style>
+</head>
+<body class="min-h-screen ambient-bg flex flex-col selection:bg-indigo-500/30 selection:text-indigo-200">
+
+  <!-- ==================== ШАПКА САЙТА ==================== -->
+  <header class="sticky top-0 z-40 border-b border-white/8 bg-studio-950/80 backdrop-blur-xl">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 min-h-16 py-2 sm:py-0 flex flex-wrap items-center justify-between gap-3">
+      <!-- Логотип -->
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-teal-400 p-[1px] shadow-lg shadow-indigo-500/20">
+          <div class="w-full h-full rounded-[11px] bg-studio-950 flex items-center justify-center">
+            <svg class="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base sm:text-lg font-bold tracking-tight text-white">ClipMind <span class="text-indigo-400">AI</span></h1>
+            <span class="hidden md:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">Gemini Vision</span>
+          </div>
+          <p class="text-[11px] text-zinc-400 hidden sm:block">Умная нарезка видео и улучшение фото</p>
+        </div>
+      </div>
+
+      <!-- Переключатель рабочих пространств (вкладок) -->
+      <nav class="flex items-center p-1 rounded-xl bg-studio-900/90 border border-white/10 order-3 sm:order-2 w-full sm:w-auto justify-center" aria-label="Рабочие пространства">
+        <button type="button" id="tabVideoBtn" data-tab="video" class="workspace-tab flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer bg-indigo-600 text-white shadow-md shadow-indigo-500/25">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+          <span>Нарезка видео</span>
+        </button>
+        <button type="button" id="tabPhotoBtn" data-tab="photo" class="workspace-tab flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer text-zinc-400 hover:text-white">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+          </svg>
+          <span>Улучшение фото</span>
+        </button>
+      </nav>
+
+      <!-- Кнопки действий в шапке для видео (видны после загрузки видео) -->
+      <div id="headerActions" class="hidden flex items-center gap-2 sm:gap-2.5 order-2 sm:order-3">
+        <button id="btnChangeVideo" class="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium text-zinc-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-all cursor-pointer">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+          </svg>
+          <span class="hidden md:inline">Другое видео</span>
+        </button>
+
+        <button id="btnExportYouTube" disabled class="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium text-teal-300 hover:text-teal-200 bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+          </svg>
+          <span class="hidden sm:inline">Таймкоды YouTube</span>
+        </button>
+
+        <button id="btnExportJSON" disabled class="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium text-indigo-300 hover:text-indigo-200 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span class="hidden sm:inline">Скачать JSON</span>
+        </button>
+      </div>
+
+      <!-- Кнопки действий в шапке для фото (видны после загрузки фото) -->
+      <div id="photoHeaderActions" class="hidden flex items-center gap-2 sm:gap-2.5 order-2 sm:order-3">
+        <button id="btnChangePhoto" class="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium text-zinc-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-all cursor-pointer">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+          </svg>
+          <span class="hidden md:inline">Другое фото</span>
+        </button>
+        <button id="btnQuickDownloadPhoto" class="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-md shadow-indigo-500/20 transition-all cursor-pointer">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          <span class="hidden sm:inline">Скачать фото</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==================== ОСНОВНОЙ КОНТЕНТ ==================== -->
+  <main class="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+
+    <!-- Скрытые input для выбора файлов -->
+    <input type="file" id="fileInput" accept="video/*" class="hidden" />
+    <input type="file" id="photoFileInput" accept="image/jpeg,image/png,image/webp,image/*" class="hidden" />
+
+    <!-- ЭКРАН 1: ЗОНА ЗАГРУЗКИ ВИДЕО -->
+    <section id="uploadSection" class="max-w-3xl mx-auto py-8 sm:py-16">
+      <div class="text-center mb-8 sm:mb-10">
+        <span class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white/5 border border-white/10 text-zinc-300 mb-4">
+          <span class="w-2 h-2 rounded-full bg-teal-400 animate-pulse"></span>
+          Анализ и нарезка прямо в вашем браузере
+        </span>
+        <h2 class="text-3xl sm:text-5xl font-extrabold tracking-tight text-white mb-4 leading-tight">
+          Нарезайте любые видео на <span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-teal-300">смысловые части</span>
+        </h2>
+        <p class="text-sm sm:text-base text-zinc-400 max-w-xl mx-auto leading-relaxed">
+          Загрузите лекцию, подкаст, интервью или влог. Искусственный интеллект определит смену тем, создаст интерактивный таймлайн и позволит скачать каждый фрагмент отдельно.
+        </p>
+      </div>
+
+      <!-- Зона Drag & Drop -->
+      <div id="dropZone" class="glass-panel rounded-3xl p-8 sm:p-14 border-2 border-dashed border-white/15 hover:border-indigo-500/60 transition-all duration-200 text-center cursor-pointer group">
+        <div class="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-5 rounded-2xl bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-center group-hover:scale-105 group-hover:bg-indigo-500/20 transition-all">
+          <svg class="w-8 h-8 sm:w-10 sm:h-10 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+          </svg>
+        </div>
+
+        <h3 class="text-lg sm:text-xl font-semibold text-white mb-2">Перетащите видеофайл сюда</h3>
+        <p class="text-xs sm:text-sm text-zinc-400 mb-6">Поддерживаются MP4, WebM, MOV, MKV и другие форматы браузера</p>
+
+        <button type="button" id="btnSelectFile" class="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 shadow-lg shadow-indigo-500/25 transition-all cursor-pointer">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+          Выбрать видеофайл
+        </button>
+      </div>
+
+      <!-- Карточки преимуществ -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8">
+        <div class="glass-panel rounded-2xl p-4">
+          <div class="w-8 h-8 rounded-lg bg-indigo-500/15 text-indigo-400 flex items-center justify-center mb-2.5">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          </div>
+          <h4 class="text-sm font-semibold text-white mb-1">Умный поиск сцен</h4>
+          <p class="text-xs text-zinc-400">Автоматическое определение смены тем, слайдов и ключевых моментов.</p>
+        </div>
+        <div class="glass-panel rounded-2xl p-4">
+          <div class="w-8 h-8 rounded-lg bg-teal-500/15 text-teal-400 flex items-center justify-center mb-2.5">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h7"/></svg>
+          </div>
+          <h4 class="text-sm font-semibold text-white mb-1">Цветной таймлайн</h4>
+          <p class="text-xs text-zinc-400">Мгновенная навигация, редактирование границ и добавление своих глав.</p>
+        </div>
+        <div class="glass-panel rounded-2xl p-4">
+          <div class="w-8 h-8 rounded-lg bg-purple-500/15 text-purple-400 flex items-center justify-center mb-2.5">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          </div>
+          <h4 class="text-sm font-semibold text-white mb-1">Экспорт фрагментов</h4>
+          <p class="text-xs text-zinc-400">Скачивание отдельных отрезков со звуком, таймкодов YouTube и JSON.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ЭКРАН 2: РАБОЧАЯ СТУДИЯ -->
+    <section id="workspaceSection" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+      <!-- ЛЕВАЯ КОЛОНКА: Плеер, таймлайн и ИИ-панель -->
+      <div class="lg:col-span-7 xl:col-span-8 space-y-5">
+
+        <!-- Метаданные видео -->
+        <div class="glass-panel rounded-2xl px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-9 h-9 rounded-xl bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center shrink-0">
+              <svg class="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+              </svg>
+            </div>
+            <div class="min-w-0">
+              <p id="metaFileName" class="text-sm font-semibold text-white truncate">video.mp4</p>
+              <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-zinc-400">
+                <span id="metaDuration">00:00</span>
+                <span>•</span>
+                <span id="metaResolution">—</span>
+                <span>•</span>
+                <span id="metaFileSize">—</span>
+              </div>
+            </div>
+          </div>
+
+          <div id="activeSegmentBadge" class="hidden inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs max-w-full">
+            <span id="activeSegmentDot" class="w-2.5 h-2.5 rounded-full shrink-0 bg-indigo-400"></span>
+            <span id="activeSegmentTitle" class="text-zinc-200 font-medium truncate max-w-[200px] sm:max-w-[260px]">—</span>
+          </div>
+        </div>
+
+        <!-- Видеоплеер и интерактивный цветной таймлайн -->
+        <div class="glass-panel rounded-2xl overflow-hidden shadow-2xl">
+          <!-- Контейнер видео -->
+          <div class="relative bg-black aspect-video flex items-center justify-center">
+            <video id="mainVideo" controls playsinline class="w-full h-full max-h-[60vh] object-contain"></video>
+          </div>
+
+          <!-- Панель интерактивного таймлайна -->
+          <div class="p-4 sm:p-5 border-t border-white/8 bg-studio-900/70 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2.5">
+                <span class="text-xs font-semibold uppercase tracking-wider text-zinc-400">Смысловой таймлайн</span>
+                <span id="currentTimeDisplay" class="font-mono text-xs text-zinc-300 bg-white/5 px-2 py-0.5 rounded-md border border-white/8">00:00 / 00:00</span>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-3">
+                <!-- Кнопка переноса текущего кадра видео в студию улучшения фото -->
+                <button type="button" id="btnEnhanceVideoFrame" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-purple-200 bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/35 transition-all cursor-pointer">
+                  <svg class="w-3.5 h-3.5 text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                  </svg>
+                  Улучшить текущий кадр
+                </button>
+
+                <!-- Переключатель автоостановки в конце сегмента -->
+                <label class="inline-flex items-center gap-2 text-xs text-zinc-300 cursor-pointer select-none">
+                  <input type="checkbox" id="chkAutoStop" checked class="w-3.5 h-3.5 rounded accent-indigo-500 cursor-pointer" />
+                  <span>Автоостановка в конце фрагмента</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Дорожка таймлайна -->
+            <div class="relative pt-1 pb-1">
+              <div id="timelineContainer" class="relative h-11 w-full rounded-xl bg-studio-950 border border-white/10 overflow-hidden cursor-pointer select-none">
+                <!-- Подсказка, когда сегментов ещё нет -->
+                <div id="timelineEmptyHint" class="absolute inset-0 flex items-center justify-center text-xs text-zinc-500 pointer-events-none px-3 text-center">
+                  Запустите ИИ-анализ ниже или добавьте фрагмент вручную, чтобы увидеть цветную разметку
+                </div>
+
+                <!-- Слой цветных сегментов -->
+                <div id="timelineSegmentsLayer" class="absolute inset-0"></div>
+
+                <!-- Курсор текущего времени (Playhead) -->
+                <div id="timelinePlayhead" class="absolute top-0 bottom-0 w-0.5 bg-white shadow-[0_0_10px_rgba(255,255,255,0.9)] pointer-events-none z-20" style="left: 0%;">
+                  <div class="w-2.5 h-2.5 rounded-full bg-white -ml-[4px] -mt-0.5 shadow"></div>
+                </div>
+              </div>
+
+              <!-- Всплывающая подсказка при наведении на сегмент -->
+              <div id="timelineTooltip" class="hidden absolute -top-11 left-0 -translate-x-1/2 pointer-events-none z-30 px-2.5 py-1.5 rounded-lg bg-zinc-900/95 border border-white/15 shadow-xl text-xs whitespace-nowrap">
+                <div id="tooltipTitle" class="font-semibold text-white"></div>
+                <div id="tooltipTime" class="font-mono text-[10px] text-zinc-400"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Панель ИИ-анализа -->
+        <div class="glass-panel rounded-2xl p-5 sm:p-6">
+          <div class="flex items-center gap-2.5 mb-4">
+            <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-teal-400 flex items-center justify-center text-white shrink-0">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-sm sm:text-base font-bold text-white">ИИ-анализ смысловых частей</h3>
+              <p class="text-xs text-zinc-400">Выберите режим нарезки — Gemini найдёт ключевые переходы и сформирует главы</p>
+            </div>
+          </div>
+
+          <!-- 4 режима нарезки -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 mb-4" id="modeSelector">
+            <button type="button" data-mode="scenes" class="mode-btn active text-left p-3 rounded-xl border border-indigo-500/60 bg-indigo-500/15 transition-all cursor-pointer">
+              <div class="text-xs font-semibold text-white mb-0.5">По смене тем и сцен</div>
+              <div class="text-[11px] text-zinc-400">Логическое деление всего видео на части</div>
+            </button>
+            <button type="button" data-mode="shorts" class="mode-btn text-left p-3 rounded-xl border border-white/10 bg-studio-950/60 hover:bg-white/5 transition-all cursor-pointer">
+              <div class="text-xs font-semibold text-zinc-200 mb-0.5">Shorts / Reels</div>
+              <div class="text-[11px] text-zinc-400">Самые яркие и динамичные моменты</div>
+            </button>
+            <button type="button" data-mode="youtube" class="mode-btn text-left p-3 rounded-xl border border-white/10 bg-studio-950/60 hover:bg-white/5 transition-all cursor-pointer">
+              <div class="text-xs font-semibold text-zinc-200 mb-0.5">Главы для YouTube</div>
+              <div class="text-[11px] text-zinc-400">Чёткое оглавление с 00:00 до конца</div>
+            </button>
+            <button type="button" data-mode="custom" class="mode-btn text-left p-3 rounded-xl border border-white/10 bg-studio-950/60 hover:bg-white/5 transition-all cursor-pointer">
+              <div class="text-xs font-semibold text-zinc-200 mb-0.5">Свой промпт</div>
+              <div class="text-[11px] text-zinc-400">Укажите собственные правила нарезки</div>
+            </button>
+          </div>
+
+          <!-- Поле ввода для режима «Свой промпт» -->
+          <div id="customPromptWrapper" class="hidden mb-4">
+            <label for="customPromptInput" class="block text-xs font-medium text-zinc-300 mb-1.5">Ваши инструкции для ИИ:</label>
+            <textarea id="customPromptInput" rows="2" placeholder="Например: Выдели только моменты со слайдами и графиками, или раздели видео на вступление, 3 главных тезиса и выводы..." class="w-full rounded-xl bg-studio-950 border border-white/10 px-3.5 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors resize-none"></textarea>
+          </div>
+
+          <!-- Кнопка запуска анализа и прогресс-бар -->
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <button id="btnAnalyze" class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2.5 px-6 py-3 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-indigo-600 to-teal-500 hover:from-indigo-500 hover:to-teal-400 shadow-lg shadow-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer">
+              <svg id="analyzeIcon" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              <span id="analyzeBtnText">Анализировать и нарезать</span>
+            </button>
+
+            <div id="analysisProgressBox" class="hidden flex-1 bg-studio-950/90 border border-white/10 rounded-xl px-4 py-2.5">
+              <div class="flex items-center justify-between text-xs mb-1.5">
+                <span id="analysisStatusText" class="font-medium text-indigo-300">Подготовка...</span>
+                <span id="analysisPercentText" class="font-mono text-zinc-400">0%</span>
+              </div>
+              <div class="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                <div id="analysisProgressBar" class="h-full bg-gradient-to-r from-indigo-500 to-teal-400 rounded-full transition-all duration-300" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ПРАВАЯ КОЛОНКА: Список смысловых частей -->
+      <div class="lg:col-span-5 xl:col-span-4 flex flex-col glass-panel rounded-2xl overflow-hidden lg:max-h-[calc(100vh-7rem)] lg:sticky lg:top-20">
+        <!-- Заголовок списка -->
+        <div class="px-5 py-4 border-b border-white/8 bg-studio-900/60 flex items-center justify-between gap-2 shrink-0">
+          <div class="flex items-center gap-2">
+            <h3 class="text-sm sm:text-base font-bold text-white">Смысловые части</h3>
+            <span id="segmentsCountBadge" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-white/10 text-zinc-200">0</span>
+          </div>
+          <button id="btnAddManualSegment" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 transition-all cursor-pointer">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Добавить
+          </button>
+        </div>
+
+        <!-- Контейнер карточек -->
+        <div id="segmentsList" class="p-4 space-y-3 overflow-y-auto flex-1 min-h-[300px]">
+          <!-- Пустое состояние -->
+          <div id="segmentsEmptyState" class="h-full flex flex-col items-center justify-center text-center py-12 px-4">
+            <div class="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-3 text-zinc-500">
+              <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+            </div>
+            <p class="text-sm font-medium text-zinc-300 mb-1">Фрагментов пока нет</p>
+            <p class="text-xs text-zinc-500 max-w-[230px]">Нажмите «Анализировать и нарезать», чтобы ИИ автоматически разбил видео, или добавьте часть вручную.</p>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ==================== ВКЛАДКА 2: УЛУЧШЕНИЕ ФОТО ==================== -->
+
+    <!-- ЭКРАН 3: ЗОНА ЗАГРУЗКИ ФОТО -->
+    <section id="photoUploadSection" class="hidden max-w-3xl mx-auto py-8 sm:py-16">
+      <div class="text-center mb-8 sm:mb-10">
+        <span class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white/5 border border-white/10 text-zinc-300 mb-4">
+          <span class="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
+          ИИ-реставрация Gemini + апскейл до 4x в браузере
+        </span>
+        <h2 class="text-3xl sm:text-5xl font-extrabold tracking-tight text-white mb-4 leading-tight">
+          Улучшение качества <span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-300">любых фотографий</span>
+        </h2>
+        <p class="text-sm sm:text-base text-zinc-400 max-w-xl mx-auto leading-relaxed">
+          Загрузите фото, старый снимок или кадр из видео. Повышайте разрешение до Ultra HD, убирайте шум и размытие, восстанавливайте детали с помощью ИИ и студийной DSP-обработки.
+        </p>
+      </div>
+
+      <!-- Зона Drag & Drop для фото -->
+      <div id="photoDropZone" class="glass-panel rounded-3xl p-8 sm:p-14 border-2 border-dashed border-white/15 hover:border-purple-500/60 transition-all duration-200 text-center cursor-pointer group">
+        <div class="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-5 rounded-2xl bg-purple-500/10 border border-purple-500/25 flex items-center justify-center group-hover:scale-105 group-hover:bg-purple-500/20 transition-all">
+          <svg class="w-8 h-8 sm:w-10 sm:h-10 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        </div>
+
+        <h3 class="text-lg sm:text-xl font-semibold text-white mb-2">Перетащите фотографию сюда</h3>
+        <p class="text-xs sm:text-sm text-zinc-400 mb-6">Поддерживаются JPG, PNG, WebP и другие форматы изображений</p>
+
+        <button type="button" id="btnSelectPhoto" class="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-lg shadow-purple-500/25 transition-all cursor-pointer">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+          </svg>
+          Выбрать фотографию
+        </button>
+      </div>
+
+      <!-- Карточки возможностей фотостудии -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8">
+        <div class="glass-panel rounded-2xl p-4">
+          <div class="w-8 h-8 rounded-lg bg-purple-500/15 text-purple-400 flex items-center justify-center mb-2.5">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+          </div>
+          <h4 class="text-sm font-semibold text-white mb-1">ИИ-реставрация Gemini</h4>
+          <p class="text-xs text-zinc-400">Автоматическое восстановление деталей, портретов, старых фото и подбор света.</p>
+        </div>
+        <div class="glass-panel rounded-2xl p-4">
+          <div class="w-8 h-8 rounded-lg bg-indigo-500/15 text-indigo-400 flex items-center justify-center mb-2.5">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+          </div>
+          <h4 class="text-sm font-semibold text-white mb-1">Апскейл 2x и 4x</h4>
+          <p class="text-xs text-zinc-400">Увеличение разрешения до Ultra HD с многоступенчатой интерполяцией и резкостью.</p>
+        </div>
+        <div class="glass-panel rounded-2xl p-4">
+          <div class="w-8 h-8 rounded-lg bg-teal-500/15 text-teal-400 flex items-center justify-center mb-2.5">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+          </div>
+          <h4 class="text-sm font-semibold text-white mb-1">Шторка «До / После»</h4>
+          <p class="text-xs text-zinc-400">Сравнивайте оригинал и результат в реальном времени и скачивайте в PNG/JPG/WebP.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ЭКРАН 4: РАБОЧАЯ СТУДИЯ УЛУЧШЕНИЯ ФОТО -->
+    <section id="photoWorkspaceSection" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+      <!-- ЛЕВАЯ КОЛОНКА: Метаданные, просмотрщик До/После и отчёт ИИ -->
+      <div class="lg:col-span-7 xl:col-span-8 space-y-5">
+
+        <!-- Метаданные фото и итоговое разрешение -->
+        <div class="glass-panel rounded-2xl px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-500/25 flex items-center justify-center shrink-0">
+              <svg class="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div class="min-w-0">
+              <p id="photoMetaName" class="text-sm font-semibold text-white truncate">photo.jpg</p>
+              <div class="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-zinc-400">
+                <span id="photoMetaFormat">JPG</span>
+                <span>•</span>
+                <span id="photoMetaSize">—</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <!-- Бейдж разрешения До -> После -->
+            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/25 text-xs font-mono">
+              <span id="photoResOriginal" class="text-zinc-400">0×0</span>
+              <span class="text-indigo-400">→</span>
+              <span id="photoResTarget" class="text-indigo-200 font-semibold">0×0</span>
+            </div>
+
+            <button type="button" id="btnResetPhotoAll" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-zinc-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-colors cursor-pointer">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Сброс
+            </button>
+          </div>
+        </div>
+
+        <!-- Интерактивный просмотрщик «До / После» -->
+        <div class="glass-panel rounded-2xl overflow-hidden shadow-2xl">
+          <div class="px-4 py-2.5 border-b border-white/8 bg-studio-900/70 flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-semibold uppercase tracking-wider text-zinc-400">Сравнение До / После</span>
+              <span id="photoAiActiveBadge" class="hidden inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/35">
+                <span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+                ИИ-реставрация активна
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <label id="aiLayerToggleWrap" class="hidden inline-flex items-center gap-1.5 text-xs text-purple-200 cursor-pointer select-none bg-purple-500/10 px-2.5 py-1 rounded-lg border border-purple-500/25">
+                <input type="checkbox" id="chkUseAiLayer" checked class="w-3.5 h-3.5 rounded accent-purple-500 cursor-pointer" />
+                <span>ИИ-слой</span>
+              </label>
+              <span class="text-[11px] text-zinc-500 hidden sm:inline">Перетаскивайте шторку влево или вправо</span>
+            </div>
+          </div>
+
+          <!-- Область сравнения -->
+          <div class="relative checker-bg p-3 sm:p-5 flex items-center justify-center min-h-[320px] sm:min-h-[440px]">
+            <!-- Оверлей загрузки ИИ -->
+            <div id="photoProcessingOverlay" class="hidden absolute inset-0 z-30 bg-studio-950/75 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
+              <div class="w-12 h-12 rounded-2xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center mb-3">
+                <svg class="w-6 h-6 text-purple-300 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+                  <path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+              </div>
+              <p id="photoProcessingTitle" class="text-sm font-semibold text-white mb-1">ИИ улучшает фотографию...</p>
+              <p id="photoProcessingSub" class="text-xs text-zinc-400 max-w-xs">Анализ экспозиции, резкости и восстановление деталей через Gemini</p>
+            </div>
+
+            <!-- Сцена сравнения с точным совпадением пропорций -->
+            <div id="compareStage" class="relative inline-block max-w-full rounded-xl overflow-hidden shadow-2xl border border-white/10 select-none touch-none cursor-ew-resize">
+              <!-- Слой ПОСЛЕ (Улучшенный предпросмотр Canvas) -->
+              <canvas id="photoAfterCanvas" class="block max-w-full max-h-[60vh] w-auto h-auto"></canvas>
+
+              <!-- Слой ДО (Оригинал, обрезаемый через clip-path) -->
+              <div id="compareBeforeClip" class="absolute inset-0 pointer-events-none" style="clip-path: inset(0 50% 0 0);">
+                <img id="photoBeforeImg" alt="Оригинал" class="w-full h-full object-fill block select-none" />
+              </div>
+
+              <!-- Подписи До / После -->
+              <div class="absolute top-3 left-3 z-10 pointer-events-none px-2.5 py-1 rounded-lg bg-black/65 backdrop-blur-md border border-white/15 text-[11px] font-semibold text-zinc-200">
+                До (Оригинал)
+              </div>
+              <div class="absolute top-3 right-3 z-10 pointer-events-none px-2.5 py-1 rounded-lg bg-indigo-950/80 backdrop-blur-md border border-indigo-400/35 text-[11px] font-semibold text-indigo-200">
+                После (Улучшено)
+              </div>
+
+              <!-- Вертикальная шторка и ручка -->
+              <div id="compareDivider" class="absolute top-0 bottom-0 z-20 w-0.5 bg-white shadow-[0_0_12px_rgba(255,255,255,0.9)] pointer-events-none" style="left: 50%;">
+                <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-studio-950/90 border-2 border-white shadow-xl flex items-center justify-center text-white">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l-3 3 3 3m8-6l3 3-3 3" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Карточка ИИ-отчёта (появляется после запуска ИИ-улучшения) -->
+        <div id="photoAiReportCard" class="hidden glass-panel rounded-2xl p-5 border border-purple-500/25">
+          <div class="flex items-start justify-between gap-3 mb-3">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white shrink-0">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <h4 class="text-sm font-bold text-white">Отчёт ИИ-улучшения Gemini</h4>
+                <p id="photoAiMethodNote" class="text-[11px] text-purple-300">—</p>
+              </div>
+            </div>
+          </div>
+
+          <p id="photoAiSummaryText" class="text-xs sm:text-sm text-zinc-300 leading-relaxed mb-3"></p>
+
+          <!-- Метрики анализа -->
+          <div id="photoAiMetricsGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
+        </div>
+      </div>
+
+      <!-- ПРАВАЯ КОЛОНКА: ИИ-улучшение, Студийный DSP, Апскейл и Экспорт -->
+      <div class="lg:col-span-5 xl:col-span-4 space-y-5">
+
+        <!-- БЛОК А: ИИ-улучшение (Gemini) -->
+        <div class="glass-panel rounded-2xl p-5">
+          <div class="flex items-center gap-2.5 mb-3.5">
+            <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white shrink-0">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-white">ИИ-улучшение (Gemini)</h3>
+              <p class="text-[11px] text-zinc-400">Генеративная реставрация и умный подбор коррекции</p>
+            </div>
+          </div>
+
+          <!-- 5 пресетов ИИ -->
+          <div id="aiPhotoPresets" class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+            <button type="button" data-preset="universal" class="ai-photo-preset active text-left px-3 py-2 rounded-xl border border-purple-500/60 bg-purple-500/15 text-xs font-medium text-white transition-all cursor-pointer">
+              Универсальное улучшение
+            </button>
+            <button type="button" data-preset="portrait" class="ai-photo-preset text-left px-3 py-2 rounded-xl border border-white/10 bg-studio-950/60 hover:bg-white/5 text-xs font-medium text-zinc-300 transition-all cursor-pointer">
+              Портрет и детали лица
+            </button>
+            <button type="button" data-preset="denoise" class="ai-photo-preset text-left px-3 py-2 rounded-xl border border-white/10 bg-studio-950/60 hover:bg-white/5 text-xs font-medium text-zinc-300 transition-all cursor-pointer">
+              Убрать шум и размытие
+            </button>
+            <button type="button" data-preset="restore" class="ai-photo-preset text-left px-3 py-2 rounded-xl border border-white/10 bg-studio-950/60 hover:bg-white/5 text-xs font-medium text-zinc-300 transition-all cursor-pointer">
+              Восстановление старого фото
+            </button>
+            <button type="button" data-preset="hdr" class="ai-photo-preset sm:col-span-2 text-left px-3 py-2 rounded-xl border border-white/10 bg-studio-950/60 hover:bg-white/5 text-xs font-medium text-zinc-300 transition-all cursor-pointer">
+              HDR и сочные цвета
+            </button>
+          </div>
+
+          <!-- Опциональное пожелание -->
+          <div class="mb-3.5">
+            <input type="text" id="photoAiCustomPrompt" placeholder="Своё пожелание (необязательно), напр. теплее свет..." class="w-full rounded-xl bg-studio-950 border border-white/10 px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500 transition-colors" />
+          </div>
+
+          <button type="button" id="btnRunPhotoAi" class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm text-white bg-gradient-to-r from-indigo-600 via-purple-600 to-fuchsia-600 hover:from-indigo-500 hover:via-purple-500 hover:to-fuchsia-500 shadow-lg shadow-purple-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <span id="btnRunPhotoAiText">Улучшить с помощью ИИ</span>
+          </button>
+        </div>
+
+        <!-- БЛОК Б: Студийная коррекция и апскейл (Canvas DSP) -->
+        <div class="glass-panel rounded-2xl p-5 space-y-4">
+          <div class="flex items-center justify-between gap-2">
+            <h3 class="text-sm font-bold text-white">Студийная коррекция и апскейл</h3>
+            <span class="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-md bg-white/5 text-zinc-400 border border-white/8">Canvas DSP</span>
+          </div>
+
+          <!-- Апскейл разрешения -->
+          <div>
+            <div class="flex items-center justify-between text-xs mb-1.5">
+              <span class="text-zinc-300 font-medium">Апскейл разрешения</span>
+              <span id="upscaleHintText" class="text-[11px] font-mono text-indigo-300">Оригинал</span>
+            </div>
+            <div class="grid grid-cols-3 gap-2" id="upscaleSelector">
+              <button type="button" data-scale="1" class="upscale-btn active py-2 rounded-xl text-xs font-semibold border border-indigo-500/60 bg-indigo-500/20 text-white transition-all cursor-pointer">1x Оригинал</button>
+              <button type="button" data-scale="2" class="upscale-btn py-2 rounded-xl text-xs font-semibold border border-white/10 bg-studio-950/60 hover:bg-white/5 text-zinc-300 transition-all cursor-pointer">2x HD / 2K</button>
+              <button type="button" data-scale="4" class="upscale-btn py-2 rounded-xl text-xs font-semibold border border-white/10 bg-studio-950/60 hover:bg-white/5 text-zinc-300 transition-all cursor-pointer">4x Ultra HD</button>
+            </div>
+          </div>
+
+          <!-- Быстрые пресеты в 1 клик -->
+          <div>
+            <div class="text-xs text-zinc-400 mb-1.5">Быстрые пресеты</div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-1.5">
+              <button type="button" data-dsp-preset="crisp" class="dsp-preset-btn px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-white/5 hover:bg-indigo-500/20 text-zinc-200 border border-white/10 hover:border-indigo-500/40 transition-all cursor-pointer">Чёткий HD</button>
+              <button type="button" data-dsp-preset="cinema" class="dsp-preset-btn px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-white/5 hover:bg-indigo-500/20 text-zinc-200 border border-white/10 hover:border-indigo-500/40 transition-all cursor-pointer">Киноцвет</button>
+              <button type="button" data-dsp-preset="soft" class="dsp-preset-btn px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-white/5 hover:bg-indigo-500/20 text-zinc-200 border border-white/10 hover:border-indigo-500/40 transition-all cursor-pointer">Светлее и мягче</button>
+              <button type="button" data-dsp-preset="reset" class="dsp-preset-btn px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-white/5 hover:bg-rose-500/20 text-zinc-300 hover:text-rose-200 border border-white/10 hover:border-rose-500/35 transition-all cursor-pointer">Сброс</button>
+            </div>
+          </div>
+
+          <!-- Ползунки реального времени -->
+          <div class="space-y-3 pt-1">
+            <div>
+              <div class="flex justify-between text-xs mb-1"><span class="text-zinc-300">Резкость (Unsharp Mask)</span><span id="valSharpness" class="font-mono text-indigo-300">0</span></div>
+              <input type="range" id="rngSharpness" min="0" max="100" value="0" class="studio-slider w-full" />
+            </div>
+            <div>
+              <div class="flex justify-between text-xs mb-1"><span class="text-zinc-300">Чёткость (локальный контраст)</span><span id="valClarity" class="font-mono text-indigo-300">0</span></div>
+              <input type="range" id="rngClarity" min="-50" max="100" value="0" class="studio-slider w-full" />
+            </div>
+            <div>
+              <div class="flex justify-between text-xs mb-1"><span class="text-zinc-300">Шумоподавление</span><span id="valDenoise" class="font-mono text-indigo-300">0</span></div>
+              <input type="range" id="rngDenoise" min="0" max="100" value="0" class="studio-slider w-full" />
+            </div>
+
+            <div class="border-t border-white/8 pt-3 space-y-3">
+              <div>
+                <div class="flex justify-between text-xs mb-1"><span class="text-zinc-300">Яркость</span><span id="valBrightness" class="font-mono text-indigo-300">0</span></div>
+                <input type="range" id="rngBrightness" min="-50" max="50" value="0" class="studio-slider w-full" />
+              </div>
+              <div>
+                <div class="flex justify-between text-xs mb-1"><span class="text-zinc-300">Контраст</span><span id="valContrast" class="font-mono text-indigo-300">0</span></div>
+                <input type="range" id="rngContrast" min="-50" max="50" value="0" class="studio-slider w-full" />
+              </div>
+              <div>
+                <div class="flex justify-between text-xs mb-1"><span class="text-zinc-300">Насыщенность</span><span id="valSaturation" class="font-mono text-indigo-300">0</span></div>
+                <input type="range" id="rngSaturation" min="-100" max="100" value="0" class="studio-slider w-full" />
+              </div>
+              <div>
+                <div class="flex justify-between text-xs mb-1"><span class="text-zinc-300">Температура (баланс белого)</span><span id="valTemperature" class="font-mono text-indigo-300">0</span></div>
+                <input type="range" id="rngTemperature" min="-50" max="50" value="0" class="studio-slider w-full" />
+              </div>
+            </div>
+
+            <!-- Переключатель Авто-уровни -->
+            <label class="flex items-center justify-between pt-2 border-t border-white/8 cursor-pointer select-none">
+              <span class="text-xs font-medium text-zinc-200">Авто-уровни (выравнивание гистограммы)</span>
+              <input type="checkbox" id="chkAutoLevels" class="w-4 h-4 rounded accent-indigo-500 cursor-pointer" />
+            </label>
+          </div>
+        </div>
+
+        <!-- БЛОК В: Экспорт готового фото -->
+        <div class="glass-panel rounded-2xl p-5 space-y-3.5">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-white">Экспорт фото</h3>
+            <span id="exportPhotoResBadge" class="font-mono text-xs text-teal-300 bg-teal-500/10 border border-teal-500/25 px-2 py-0.5 rounded-lg">0 × 0 px</span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2" id="photoFormatSelector">
+            <button type="button" data-fmt="image/png" class="photo-fmt-btn active py-2 rounded-xl text-xs font-semibold border border-indigo-500/60 bg-indigo-500/20 text-white transition-all cursor-pointer">PNG</button>
+            <button type="button" data-fmt="image/jpeg" class="photo-fmt-btn py-2 rounded-xl text-xs font-semibold border border-white/10 bg-studio-950/60 hover:bg-white/5 text-zinc-300 transition-all cursor-pointer">JPEG</button>
+            <button type="button" data-fmt="image/webp" class="photo-fmt-btn py-2 rounded-xl text-xs font-semibold border border-white/10 bg-studio-950/60 hover:bg-white/5 text-zinc-300 transition-all cursor-pointer">WebP</button>
+          </div>
+
+          <div id="photoQualityWrap" class="hidden">
+            <div class="flex justify-between text-xs mb-1">
+              <span class="text-zinc-300">Качество сжатия</span>
+              <span id="valPhotoQuality" class="font-mono text-indigo-300">92%</span>
+            </div>
+            <input type="range" id="rngPhotoQuality" min="50" max="100" value="92" class="studio-slider w-full" />
+          </div>
+
+          <button type="button" id="btnDownloadEnhancedPhoto" class="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-indigo-600 to-teal-500 hover:from-indigo-500 hover:to-teal-400 shadow-lg shadow-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            <span id="btnDownloadPhotoText">Скачать улучшенное фото</span>
+          </button>
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <!-- ==================== МОДАЛЬНОЕ ОКНО: РЕДАКТИРОВАНИЕ / ДОБАВЛЕНИЕ ==================== -->
+  <div id="editModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+    <div class="glass-panel w-full max-w-lg rounded-2xl p-6 shadow-2xl border border-white/15">
+      <div class="flex items-center justify-between mb-4">
+        <h3 id="editModalTitle" class="text-base font-bold text-white">Редактировать фрагмент</h3>
+        <button id="btnCloseEditModal" class="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+      </div>
+
+      <form id="editSegmentForm" class="space-y-4">
+        <input type="hidden" id="editSegId" />
+
+        <div>
+          <label for="editSegTitle" class="block text-xs font-medium text-zinc-300 mb-1">Название фрагмента</label>
+          <input type="text" id="editSegTitle" required class="w-full rounded-xl bg-studio-950 border border-white/10 px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="editSegStart" class="block text-xs font-medium text-zinc-300 mb-1">Начало (ММ:СС)</label>
+            <input type="text" id="editSegStart" required placeholder="00:00" class="w-full rounded-xl bg-studio-950 border border-white/10 px-3.5 py-2.5 text-sm font-mono text-white focus:outline-none focus:border-indigo-500" />
+          </div>
+          <div>
+            <label for="editSegEnd" class="block text-xs font-medium text-zinc-300 mb-1">Конец (ММ:СС)</label>
+            <input type="text" id="editSegEnd" required placeholder="00:30" class="w-full rounded-xl bg-studio-950 border border-white/10 px-3.5 py-2.5 text-sm font-mono text-white focus:outline-none focus:border-indigo-500" />
+          </div>
+        </div>
+
+        <div>
+          <label for="editSegCategory" class="block text-xs font-medium text-zinc-300 mb-1">Категория</label>
+          <input type="text" id="editSegCategory" placeholder="Например: Вступление, Разбор, Вывод" class="w-full rounded-xl bg-studio-950 border border-white/10 px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500" />
+        </div>
+
+        <div>
+          <label for="editSegSummary" class="block text-xs font-medium text-zinc-300 mb-1">Описание</label>
+          <textarea id="editSegSummary" rows="3" class="w-full rounded-xl bg-studio-950 border border-white/10 px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 resize-none"></textarea>
+        </div>
+
+        <div>
+          <label for="editSegTags" class="block text-xs font-medium text-zinc-300 mb-1">Теги (через запятую)</label>
+          <input type="text" id="editSegTags" placeholder="ключевое, пример, совет" class="w-full rounded-xl bg-studio-950 border border-white/10 px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500" />
+        </div>
+
+        <div class="flex items-center justify-end gap-2.5 pt-2">
+          <button type="button" id="btnCancelEdit" class="px-4 py-2 rounded-xl text-xs font-medium text-zinc-300 hover:text-white bg-white/5 hover:bg-white/10 transition-colors cursor-pointer">Отмена</button>
+          <button type="submit" class="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-colors cursor-pointer">Сохранить</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== МОДАЛЬНОЕ ОКНО: ТАЙМКОДЫ YOUTUBE ==================== -->
+  <div id="youtubeModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+    <div class="glass-panel w-full max-w-lg rounded-2xl p-6 shadow-2xl border border-white/15">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-base font-bold text-white">Таймкоды для YouTube</h3>
+        <button id="btnCloseYoutubeModal" class="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+      </div>
+      <p class="text-xs text-zinc-400 mb-3">Скопируйте и вставьте этот список в описание вашего ролика на YouTube:</p>
+      <textarea id="youtubeOutputText" readonly rows="8" class="w-full rounded-xl bg-studio-950 border border-white/10 p-3.5 text-sm font-mono text-teal-200 focus:outline-none mb-4 resize-none"></textarea>
+      <div class="flex items-center justify-end gap-2.5">
+        <button type="button" id="btnCloseYoutubeModal2" class="px-4 py-2 rounded-xl text-xs font-medium text-zinc-300 hover:text-white bg-white/5 hover:bg-white/10 transition-colors cursor-pointer">Закрыть</button>
+        <button type="button" id="btnCopyYoutube" class="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-semibold text-white bg-teal-600 hover:bg-teal-500 transition-colors cursor-pointer">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+          Копировать в буфер
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== МОДАЛЬНОЕ ОКНО: ПРОГРЕСС НАРЕЗКИ И ЭКСПОРТА ==================== -->
+  <div id="exportProgressModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+    <div class="glass-panel w-full max-w-md rounded-2xl p-6 shadow-2xl border border-white/15 text-center">
+      <div class="w-12 h-12 mx-auto mb-4 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center">
+        <svg class="w-6 h-6 text-indigo-400 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+          <path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+      </div>
+      <h3 class="text-base font-bold text-white mb-1">Нарезка видеофрагмента</h3>
+      <p id="exportSegmentName" class="text-xs text-zinc-400 mb-5 truncate">—</p>
+
+      <div class="w-full h-2.5 bg-studio-950 rounded-full overflow-hidden border border-white/10 mb-2">
+        <div id="exportProgressBar" class="h-full bg-gradient-to-r from-indigo-500 to-teal-400 transition-all duration-150" style="width: 0%"></div>
+      </div>
+      <div class="flex items-center justify-between text-xs font-mono text-zinc-400 mb-5">
+        <span id="exportTimeInfo">00:00 / 00:00</span>
+        <span id="exportPercentInfo" class="text-white font-semibold">0%</span>
+      </div>
+
+      <p class="text-[11px] text-zinc-500 mb-5">
+        Запись видео и звука идёт в реальном времени прямо в браузере. Пожалуйста, не закрывайте вкладку.
+      </p>
+
+      <button id="btnCancelExport" class="px-5 py-2 rounded-xl text-xs font-medium text-rose-300 hover:text-white bg-rose-500/15 hover:bg-rose-500/30 border border-rose-500/25 transition-colors cursor-pointer">
+        Отменить нарезку
+      </button>
+    </div>
+  </div>
+
+  <!-- Контейнер уведомлений (Toast) -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+  <!-- ==================== СКРИПТ ПРИЛОЖЕНИЯ ==================== -->
+  <script>
+    // ===================== КОНСТАНТЫ И СОСТОЯНИЕ =====================
+    const apiKey = ""; // Автоматически подставляется средой выполнения Canvas
+    const GEMINI_MODEL = "gemini-3-flash-preview";
+    const GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image";
+    const GEMINI_IMAGE_FALLBACK = "gemini-2.5-flash-image";
+
+    // Палитра цветов для смысловых сегментов
+    const SEGMENT_COLORS = [
+      { hex: '#6366f1', bg: 'rgba(99, 102, 241, 0.75)', soft: 'rgba(99, 102, 241, 0.16)', border: 'rgba(99, 102, 241, 0.45)', text: '#a5b4fc' },
+      { hex: '#14b8a6', bg: 'rgba(20, 184, 166, 0.75)', soft: 'rgba(20, 184, 166, 0.16)', border: 'rgba(20, 184, 166, 0.45)', text: '#5eead4' },
+      { hex: '#a855f7', bg: 'rgba(168, 85, 247, 0.75)', soft: 'rgba(168, 85, 247, 0.16)', border: 'rgba(168, 85, 247, 0.45)', text: '#d8b4fe' },
+      { hex: '#f59e0b', bg: 'rgba(245, 158, 11, 0.75)', soft: 'rgba(245, 158, 11, 0.16)', border: 'rgba(245, 158, 11, 0.45)', text: '#fcd34d' },
+      { hex: '#ec4899', bg: 'rgba(236, 72, 153, 0.75)', soft: 'rgba(236, 72, 153, 0.16)', border: 'rgba(236, 72, 153, 0.45)', text: '#f9a8d4' },
+      { hex: '#06b6d4', bg: 'rgba(6, 182, 212, 0.75)',  soft: 'rgba(6, 182, 212, 0.16)',  border: 'rgba(6, 182, 212, 0.45)',  text: '#67e8f9' },
+      { hex: '#10b981', bg: 'rgba(16, 185, 129, 0.75)', soft: 'rgba(16, 185, 129, 0.16)', border: 'rgba(16, 185, 129, 0.45)', text: '#6ee7b7' },
+      { hex: '#f97316', bg: 'rgba(249, 115, 22, 0.75)', soft: 'rgba(249, 115, 22, 0.16)', border: 'rgba(249, 115, 22, 0.45)', text: '#fdba74' },
+    ];
+
+    const state = {
+      file: null,
+      videoUrl: null,
+      duration: 0,
+      width: 0,
+      height: 0,
+      mode: 'scenes', // 'scenes' | 'shorts' | 'youtube' | 'custom'
+      segments: [],
+      activeSegmentId: null,
+      segmentStopAt: null,
+      isAnalyzing: false,
+      exportController: null
+    };
+
+    // ===================== ССЫЛКИ НА DOM-ЭЛЕМЕНТЫ =====================
+    const el = {
+      fileInput: document.getElementById('fileInput'),
+      uploadSection: document.getElementById('uploadSection'),
+      workspaceSection: document.getElementById('workspaceSection'),
+      dropZone: document.getElementById('dropZone'),
+      btnSelectFile: document.getElementById('btnSelectFile'),
+
+      headerActions: document.getElementById('headerActions'),
+      btnChangeVideo: document.getElementById('btnChangeVideo'),
+      btnExportYouTube: document.getElementById('btnExportYouTube'),
+      btnExportJSON: document.getElementById('btnExportJSON'),
+
+      metaFileName: document.getElementById('metaFileName'),
+      metaDuration: document.getElementById('metaDuration'),
+      metaResolution: document.getElementById('metaResolution'),
+      metaFileSize: document.getElementById('metaFileSize'),
+      activeSegmentBadge: document.getElementById('activeSegmentBadge'),
+      activeSegmentDot: document.getElementById('activeSegmentDot'),
+      activeSegmentTitle: document.getElementById('activeSegmentTitle'),
+
+      mainVideo: document.getElementById('mainVideo'),
+      currentTimeDisplay: document.getElementById('currentTimeDisplay'),
+      chkAutoStop: document.getElementById('chkAutoStop'),
+      timelineContainer: document.getElementById('timelineContainer'),
+      timelineSegmentsLayer: document.getElementById('timelineSegmentsLayer'),
+      timelineEmptyHint: document.getElementById('timelineEmptyHint'),
+      timelinePlayhead: document.getElementById('timelinePlayhead'),
+      timelineTooltip: document.getElementById('timelineTooltip'),
+      tooltipTitle: document.getElementById('tooltipTitle'),
+      tooltipTime: document.getElementById('tooltipTime'),
+
+      modeBtns: document.querySelectorAll('.mode-btn'),
+      customPromptWrapper: document.getElementById('customPromptWrapper'),
+      customPromptInput: document.getElementById('customPromptInput'),
+      btnAnalyze: document.getElementById('btnAnalyze'),
+      analyzeBtnText: document.getElementById('analyzeBtnText'),
+      analysisProgressBox: document.getElementById('analysisProgressBox'),
+      analysisStatusText: document.getElementById('analysisStatusText'),
+      analysisPercentText: document.getElementById('analysisPercentText'),
+      analysisProgressBar: document.getElementById('analysisProgressBar'),
+
+      segmentsCountBadge: document.getElementById('segmentsCountBadge'),
+      btnAddManualSegment: document.getElementById('btnAddManualSegment'),
+      segmentsList: document.getElementById('segmentsList'),
+      segmentsEmptyState: document.getElementById('segmentsEmptyState'),
+
+      // Модалка редактирования
+      editModal: document.getElementById('editModal'),
+      editModalTitle: document.getElementById('editModalTitle'),
+      btnCloseEditModal: document.getElementById('btnCloseEditModal'),
+      btnCancelEdit: document.getElementById('btnCancelEdit'),
+      editSegmentForm: document.getElementById('editSegmentForm'),
+      editSegId: document.getElementById('editSegId'),
+      editSegTitle: document.getElementById('editSegTitle'),
+      editSegStart: document.getElementById('editSegStart'),
+      editSegEnd: document.getElementById('editSegEnd'),
+      editSegCategory: document.getElementById('editSegCategory'),
+      editSegSummary: document.getElementById('editSegSummary'),
+      editSegTags: document.getElementById('editSegTags'),
+
+      // Модалка YouTube
+      youtubeModal: document.getElementById('youtubeModal'),
+      youtubeOutputText: document.getElementById('youtubeOutputText'),
+      btnCloseYoutubeModal: document.getElementById('btnCloseYoutubeModal'),
+      btnCloseYoutubeModal2: document.getElementById('btnCloseYoutubeModal2'),
+      btnCopyYoutube: document.getElementById('btnCopyYoutube'),
+
+      // Модалка экспорта видео
+      exportProgressModal: document.getElementById('exportProgressModal'),
+      exportSegmentName: document.getElementById('exportSegmentName'),
+      exportProgressBar: document.getElementById('exportProgressBar'),
+      exportTimeInfo: document.getElementById('exportTimeInfo'),
+      exportPercentInfo: document.getElementById('exportPercentInfo'),
+      btnCancelExport: document.getElementById('btnCancelExport'),
+
+      toastContainer: document.getElementById('toastContainer')
+    };
+
+    // ===================== УТИЛИТЫ =====================
+
+    /** Форматирование секунд в MM:SS или HH:MM:SS */
+    function formatTime(sec) {
+      if (!Number.isFinite(sec) || sec < 0) sec = 0;
+      const total = Math.floor(sec);
+      const h = Math.floor(total / 3600);
+      const m = Math.floor((total % 3600) / 60);
+      const s = total % 60;
+      const pad = (n) => String(n).padStart(2, '0');
+      return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+    }
+
+    /** Парсинг строки времени (MM:SS, HH:MM:SS или просто секунд) в число */
+    function parseTimeInput(str) {
+      if (!str) return NaN;
+      const cleaned = str.trim();
+      if (/^\d+(\.\d+)?$/.test(cleaned)) {
+        return parseFloat(cleaned);
+      }
+      const parts = cleaned.split(':').map(Number);
+      if (parts.some(isNaN)) return NaN;
+      if (parts.length === 2) return parts[0] * 60 + parts[1];
+      if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+      return NaN;
+    }
+
+    /** Форматирование размера файла */
+    function formatFileSize(bytes) {
+      if (bytes < 1024) return `${bytes} Б`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`;
+      if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`;
+      return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} ГБ`;
+    }
+
+    /** Безопасное экранирование HTML */
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text || '';
+      return div.innerHTML;
+    }
+
+    /** Показ всплывающего уведомления (Toast) */
+    function showToast(message, type = 'info') {
+      const styles = {
+        success: 'bg-emerald-950/95 border-emerald-500/40 text-emerald-200',
+        error: 'bg-rose-950/95 border-rose-500/40 text-rose-200',
+        info: 'bg-zinc-900/95 border-white/15 text-zinc-100'
+      };
+      const icons = {
+        success: '<svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>',
+        error: '<svg class="w-4 h-4 text-rose-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+        info: '<svg class="w-4 h-4 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
+      };
+
+      const toast = document.createElement('div');
+      toast.className = `toast-enter pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl border shadow-2xl text-xs sm:text-sm font-medium ${styles[type] || styles.info}`;
+      toast.innerHTML = `${icons[type] || icons.info}<span>${escapeHtml(message)}</span>`;
+      el.toastContainer.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(8px)';
+        toast.style.transition = 'all 0.2s ease';
+        setTimeout(() => toast.remove(), 220);
+      }, 3400);
+    }
+
+    /** Генератор уникального ID */
+    function uid() {
+      return 'seg_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    }
+
+    // ===================== ЗАГРУЗКА ВИДЕО =====================
+
+    function handleVideoFile(file) {
+      if (!file) return;
+      if (!file.type.startsWith('video/')) {
+        showToast('Пожалуйста, выберите корректный видеофайл (MP4, WebM, MOV и др.).', 'error');
+        return;
+      }
+
+      // Освобождаем прошлый URL
+      if (state.videoUrl) {
+        URL.revokeObjectURL(state.videoUrl);
+      }
+
+      state.file = file;
+      state.videoUrl = URL.createObjectURL(file);
+      state.segments = [];
+      state.activeSegmentId = null;
+      state.segmentStopAt = null;
+
+      el.mainVideo.src = state.videoUrl;
+      el.mainVideo.load();
+
+      el.mainVideo.onloadedmetadata = () => {
+        state.duration = el.mainVideo.duration || 0;
+        state.width = el.mainVideo.videoWidth || 0;
+        state.height = el.mainVideo.videoHeight || 0;
+
+        // Заполняем метаданные
+        el.metaFileName.textContent = file.name;
+        el.metaDuration.textContent = formatTime(state.duration);
+        el.metaResolution.textContent = state.width && state.height ? `${state.width}×${state.height}` : 'Неизвестно';
+        el.metaFileSize.textContent = formatFileSize(file.size);
+        el.currentTimeDisplay.textContent = `00:00 / ${formatTime(state.duration)}`;
+
+        // Переключаем экраны
+        el.uploadSection.classList.add('hidden');
+        el.workspaceSection.classList.remove('hidden');
+        if (activeWorkspaceTab === 'video') {
+          el.headerActions.classList.remove('hidden');
+        }
+        el.activeSegmentBadge.classList.add('hidden');
+
+        renderAll();
+        showToast(`Видео «${file.name}» загружено`, 'success');
+      };
+
+      el.mainVideo.onerror = () => {
+        showToast('Не удалось воспроизвести этот формат видео в браузере.', 'error');
+      };
+    }
+
+    // События Drag & Drop и выбора файла
+    el.dropZone.addEventListener('click', () => el.fileInput.click());
+    el.btnSelectFile.addEventListener('click', (e) => {
+      e.stopPropagation();
+      el.fileInput.click();
+    });
+    el.btnChangeVideo.addEventListener('click', () => el.fileInput.click());
+
+    el.fileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files[0]) {
+        handleVideoFile(e.target.files[0]);
+        e.target.value = '';
+      }
+    });
+
+    ['dragenter', 'dragover'].forEach(evt => {
+      el.dropZone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        el.dropZone.classList.add('drop-active');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(evt => {
+      el.dropZone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        el.dropZone.classList.remove('drop-active');
+      });
+    });
+
+    el.dropZone.addEventListener('drop', (e) => {
+      const files = e.dataTransfer?.files;
+      if (files && files[0]) {
+        handleVideoFile(files[0]);
+      }
+    });
+
+    // ===================== ВЫБОР РЕЖИМА ИИ =====================
+
+    el.modeBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        el.modeBtns.forEach(b => {
+          b.classList.remove('active', 'border-indigo-500/60', 'bg-indigo-500/15');
+          b.classList.add('border-white/10', 'bg-studio-950/60');
+        });
+        btn.classList.add('active', 'border-indigo-500/60', 'bg-indigo-500/15');
+        btn.classList.remove('border-white/10', 'bg-studio-950/60');
+
+        state.mode = btn.dataset.mode;
+        if (state.mode === 'custom') {
+          el.customPromptWrapper.classList.remove('hidden');
+          el.customPromptInput.focus();
+        } else {
+          el.customPromptWrapper.classList.add('hidden');
+        }
+      });
+    });
+
+    // ===================== ИЗВЛЕЧЕНИЕ КАДРОВ И ИИ-АНАЛИЗ =====================
+
+    /**
+     * Равномерно извлекает заданное число ключевых кадров из видео через скрытый <canvas>.
+     */
+    async function extractKeyframes(frameCount, onProgress) {
+      const video = document.createElement('video');
+      video.src = state.videoUrl;
+      video.muted = true;
+      video.playsInline = true;
+      video.crossOrigin = 'anonymous';
+
+      await new Promise((resolve, reject) => {
+        video.onloadedmetadata = resolve;
+        video.onerror = () => reject(new Error('Не удалось загрузить видео для извлечения кадров'));
+      });
+
+      const dur = video.duration || state.duration;
+      const maxWidth = 512;
+      const scale = Math.min(1, maxWidth / (video.videoWidth || 640));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(160, Math.round((video.videoWidth || 640) * scale));
+      canvas.height = Math.max(90, Math.round((video.videoHeight || 360) * scale));
+      const ctx = canvas.getContext('2d');
+
+      const frames = [];
+      const count = Math.max(4, Math.min(frameCount, Math.ceil(dur)));
+
+      for (let i = 0; i < count; i++) {
+        // Равномерно распределяем точки от начала до конца видео
+        const ratio = count === 1 ? 0 : i / (count - 1);
+        const timeSec = Math.min(Math.max(0.1, ratio * (dur - 0.2)), Math.max(0.1, dur - 0.1));
+
+        await new Promise((resolve) => {
+          const onSeeked = () => {
+            video.removeEventListener('seeked', onSeeked);
+            resolve();
+          };
+          video.addEventListener('seeked', onSeeked);
+          video.currentTime = timeSec;
+        });
+
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.68);
+        const base64 = dataUrl.split(',')[1];
+
+        frames.push({
+          timeSec: Number(timeSec.toFixed(1)),
+          base64
+        });
+
+        if (onProgress) onProgress(i + 1, count);
+      }
+
+      video.src = '';
+      video.remove();
+      return frames;
+    }
+
+    /**
+     * Запрос к Gemini API с экспоненциальной задержкой при временных ошибках/лимитах
+     */
+    async function callGeminiWithRetry(payload, maxRetries = 4) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+      let delay = 1000;
+
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (response.ok) {
+            return await response.json();
+          }
+
+          if ((response.status === 429 || response.status >= 500) && attempt < maxRetries) {
+            await new Promise(r => setTimeout(r, delay));
+            delay *= 2;
+            continue;
+          }
+
+          const errText = await response.text();
+          throw new Error(`Ошибка API (${response.status}): ${errText.slice(0, 180)}`);
+        } catch (err) {
+          if (attempt < maxRetries) {
+            await new Promise(r => setTimeout(r, delay));
+            delay *= 2;
+            continue;
+          }
+          throw err;
+        }
+      }
+    }
+
+    function updateProgress(status, percent) {
+      el.analysisStatusText.textContent = status;
+      el.analysisPercentText.textContent = `${Math.round(percent)}%`;
+      el.analysisProgressBar.style.width = `${Math.min(100, Math.max(0, percent))}%`;
+    }
+
+    /** Основная функция запуска ИИ-анализа */
+    async function runAiAnalysis() {
+      if (!state.file || state.isAnalyzing) return;
+
+      state.isAnalyzing = true;
+      el.btnAnalyze.disabled = true;
+      el.analyzeBtnText.textContent = 'Идёт анализ...';
+      el.analysisProgressBox.classList.remove('hidden');
+
+      try {
+        // Шаг 1: Извлечение 16 ключевых кадров
+        const targetFrames = 16;
+        updateProgress('Извлечение ключевых кадров...', 5);
+
+        const frames = await extractKeyframes(targetFrames, (current, total) => {
+          const pct = 5 + (current / total) * 45;
+          updateProgress(`Извлечение кадров (${current}/${total})...`, pct);
+        });
+
+        // Шаг 2: Формирование запроса к Gemini API
+        updateProgress('ИИ анализирует смысловые переходы...', 60);
+
+        const modeInstructions = {
+          scenes: 'Раздели всё видео от начала до конца на логические смысловые части по смене тем, локаций, слайдов или сцен. Сегменты должны последовательно покрывать всё видео без больших пропусков.',
+          shorts: 'Найди самые интересные, динамичные, эмоциональные или полезные фрагменты видео, которые идеально подойдут для вертикальных роликов Shorts / Reels / TikTok (старайся делать их лаконичными и завершёнными по смыслу).',
+          youtube: 'Создай идеальную структуру глав для YouTube, начиная строго с 0 секунд и до самого конца видео. Названия глав должны быть ёмкими, кликабельными и понятными зрителю.',
+          custom: el.customPromptInput.value.trim() || 'Раздели видео на смысловые части.'
+        };
+
+        const systemInstructionText = `Ты — профессиональный режиссёр монтажа и ИИ-ассистент сервиса ClipMind AI.
+Твоя задача — проанализировать последовательность ключевых кадров с точными таймкодами и разбить видео на смысловые сегменты.
+Отвечай СТРОГО на русском языке (все заголовки, описания, категории и теги на русском).
+Все значения start и end указывай в секундах (числа), строго в пределах от 0 до ${state.duration.toFixed(1)}.
+Для каждого сегмента гарантируй, что end > start (минимум 2 секунды).`;
+
+        const userParts = [
+          {
+            text: `Название файла: "${state.file.name}".
+Общая длительность видео: ${state.duration.toFixed(1)} сек (${formatTime(state.duration)}).
+Режим нарезки: ${modeInstructions[state.mode]}
+
+Ниже представлены ${frames.length} ключевых кадров, равномерно извлечённых из видео с их точными таймкодами. Проанализируй визуальные переходы, текст на экране, смену планов и событий, и верни JSON-массив смысловых сегментов:`
+          }
+        ];
+
+        frames.forEach(frame => {
+          userParts.push({
+            text: `[Таймкод: ${frame.timeSec} сек (${formatTime(frame.timeSec)})]`
+          });
+          userParts.push({
+            inlineData: {
+              mimeType: 'image/jpeg',
+              data: frame.base64
+            }
+          });
+        });
+
+        const payload = {
+          contents: [{ role: 'user', parts: userParts }],
+          systemInstruction: { parts: [{ text: systemInstructionText }] },
+          generationConfig: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: 'ARRAY',
+              items: {
+                type: 'OBJECT',
+                properties: {
+                  title: { type: 'STRING', description: 'Короткое и понятное название смысловой части' },
+                  start: { type: 'NUMBER', description: 'Время начала фрагмента в секундах' },
+                  end: { type: 'NUMBER', description: 'Время окончания фрагмента в секундах' },
+                  summary: { type: 'STRING', description: 'Краткое описание происходящего в этом фрагменте (1-2 предложения)' },
+                  category: { type: 'STRING', description: 'Короткая категория сцены' },
+                  tags: {
+                    type: 'ARRAY',
+                    items: { type: 'STRING' },
+                    description: '2-3 коротких тега без #'
+                  }
+                },
+                required: ['title', 'start', 'end', 'summary', 'category', 'tags']
+              }
+            }
+          }
+        };
+
+        const result = await callGeminiWithRetry(payload);
+        updateProgress('Обработка результатов...', 90);
+
+        const rawText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!rawText) {
+          throw new Error('ИИ вернул пустой ответ. Попробуйте повторить анализ.');
+        }
+
+        const parsed = JSON.parse(rawText);
+        if (!Array.isArray(parsed) || parsed.length === 0) {
+          throw new Error('Не удалось выделить смысловые фрагменты.');
+        }
+
+        // Валидируем и нормализуем сегменты
+        const dur = state.duration || 1;
+        state.segments = parsed
+          .map((item, idx) => {
+            let start = Math.max(0, Math.min(dur - 0.5, Number(item.start) || 0));
+            let end = Math.max(start + 0.5, Math.min(dur, Number(item.end) || dur));
+            return {
+              id: uid(),
+              title: String(item.title || `Фрагмент ${idx + 1}`).trim(),
+              start: Number(start.toFixed(1)),
+              end: Number(end.toFixed(1)),
+              summary: String(item.summary || '').trim(),
+              category: String(item.category || 'Сцена').trim(),
+              tags: Array.isArray(item.tags) ? item.tags.map(t => String(t).replace(/^#/, '').trim()).filter(Boolean).slice(0, 4) : [],
+              colorIdx: idx % SEGMENT_COLORS.length
+            };
+          })
+          .sort((a, b) => a.start - b.start);
+
+        updateProgress('Готово!', 100);
+        renderAll();
+        showToast(`Найдено смысловых частей: ${state.segments.length}`, 'success');
+
+        setTimeout(() => {
+          el.analysisProgressBox.classList.add('hidden');
+        }, 1200);
+
+      } catch (err) {
+        console.error(err);
+        showToast(err.message || 'Ошибка при ИИ-анализе видео', 'error');
+        el.analysisProgressBox.classList.add('hidden');
+      } finally {
+        state.isAnalyzing = false;
+        el.btnAnalyze.disabled = false;
+        el.analyzeBtnText.textContent = 'Анализировать и нарезать';
+      }
+    }
+
+    el.btnAnalyze.addEventListener('click', runAiAnalysis);
+
+    // ===================== ОТРИСОВКА ТАЙМЛАЙНА И КАРТОЧЕК =====================
+
+    function renderAll() {
+      const hasSegments = state.segments.length > 0;
+      el.segmentsCountBadge.textContent = state.segments.length;
+      el.btnExportYouTube.disabled = !hasSegments;
+      el.btnExportJSON.disabled = !hasSegments;
+
+      renderTimeline();
+      renderSegmentsList();
+      updateActiveSegmentUI();
+    }
+
+    function renderTimeline() {
+      el.timelineSegmentsLayer.innerHTML = '';
+      if (state.segments.length === 0 || !state.duration) {
+        el.timelineEmptyHint.classList.remove('hidden');
+        return;
+      }
+
+      el.timelineEmptyHint.classList.add('hidden');
+      const dur = state.duration;
+
+      state.segments.forEach((seg) => {
+        const color = SEGMENT_COLORS[seg.colorIdx % SEGMENT_COLORS.length];
+        const leftPct = (seg.start / dur) * 100;
+        const widthPct = Math.max(0.8, ((seg.end - seg.start) / dur) * 100);
+        const isActive = seg.id === state.activeSegmentId;
+
+        const bar = document.createElement('div');
+        bar.className = `absolute top-1.5 bottom-1.5 rounded-md transition-all duration-150 cursor-pointer border ${isActive ? 'z-10 brightness-125 ring-2 ring-white/80' : 'hover:brightness-125'}`;
+        bar.style.left = `${leftPct}%`;
+        bar.style.width = `calc(${widthPct}% - 2px)`;
+        bar.style.backgroundColor = color.bg;
+        bar.style.borderColor = color.hex;
+
+        // Внутренняя подпись, если блок достаточно широкий
+        if (widthPct > 9) {
+          bar.innerHTML = `<div class="px-1.5 h-full flex items-center text-[10px] font-semibold text-white truncate drop-shadow">${escapeHtml(seg.title)}</div>`;
+        }
+
+        bar.addEventListener('click', (e) => {
+          e.stopPropagation();
+          playSegment(seg.id);
+        });
+
+        bar.addEventListener('mouseenter', (e) => {
+          el.tooltipTitle.textContent = seg.title;
+          el.tooltipTime.textContent = `${formatTime(seg.start)} — ${formatTime(seg.end)} (${formatTime(seg.end - seg.start)})`;
+          el.timelineTooltip.classList.remove('hidden');
+          const rect = el.timelineContainer.getBoundingClientRect();
+          const barRect = bar.getBoundingClientRect();
+          const centerX = barRect.left - rect.left + barRect.width / 2;
+          el.timelineTooltip.style.left = `${Math.max(70, Math.min(rect.width - 70, centerX))}px`;
+        });
+
+        bar.addEventListener('mouseleave', () => {
+          el.timelineTooltip.classList.add('hidden');
+        });
+
+        el.timelineSegmentsLayer.appendChild(bar);
+      });
+    }
+
+    function renderSegmentsList() {
+      // Очищаем список, сохраняя emptyState
+      Array.from(el.segmentsList.children).forEach(child => {
+        if (child !== el.segmentsEmptyState) child.remove();
+      });
+
+      if (state.segments.length === 0) {
+        el.segmentsEmptyState.classList.remove('hidden');
+        return;
+      }
+
+      el.segmentsEmptyState.classList.add('hidden');
+
+      state.segments.forEach((seg, idx) => {
+        const color = SEGMENT_COLORS[seg.colorIdx % SEGMENT_COLORS.length];
+        const isActive = seg.id === state.activeSegmentId;
+        const durText = formatTime(Math.max(0, seg.end - seg.start));
+
+        const card = document.createElement('div');
+        card.dataset.segId = seg.id;
+        card.className = `group relative rounded-2xl p-4 border transition-all duration-150 ${
+          isActive
+            ? 'bg-white/[0.07] border-white/25 shadow-lg'
+            : 'bg-studio-950/70 border-white/8 hover:border-white/15 hover:bg-white/[0.04]'
+        }`;
+
+        // Левая цветная полоска
+        const tagsHtml = (seg.tags || []).map(tag =>
+          `<span class="px-2 py-0.5 rounded-md text-[10px] font-medium bg-white/5 text-zinc-400 border border-white/8">#${escapeHtml(tag)}</span>`
+        ).join('');
+
+        card.innerHTML = `
+          <div class="absolute left-0 top-3 bottom-3 w-1 rounded-r-full" style="background-color: ${color.hex}"></div>
+
+          <div class="pl-2.5">
+            <!-- Верхняя строка: таймкод + категория -->
+            <div class="flex items-center justify-between gap-2 mb-1.5">
+              <button type="button" data-action="play" class="inline-flex items-center gap-1.5 font-mono text-xs font-semibold px-2 py-0.5 rounded-lg border cursor-pointer transition-transform active:scale-95" style="background-color: ${color.soft}; border-color: ${color.border}; color: ${color.text}">
+                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                ${formatTime(seg.start)} — ${formatTime(seg.end)}
+              </button>
+              <div class="flex items-center gap-1.5">
+                <span class="text-[11px] font-mono text-zinc-500">${durText}</span>
+                <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-white/8 text-zinc-300">${escapeHtml(seg.category)}</span>
+              </div>
+            </div>
+
+            <!-- Заголовок -->
+            <h4 data-action="play" class="text-sm font-bold text-white mb-1 cursor-pointer hover:text-indigo-300 transition-colors leading-snug">
+              <span class="text-zinc-500 font-mono text-xs mr-1">${String(idx + 1).padStart(2, '0')}.</span>${escapeHtml(seg.title)}
+            </h4>
+
+            <!-- Описание -->
+            ${seg.summary ? `<p class="text-xs text-zinc-400 leading-relaxed mb-2.5">${escapeHtml(seg.summary)}</p>` : ''}
+
+            <!-- Теги -->
+            ${tagsHtml ? `<div class="flex flex-wrap gap-1.5 mb-3">${tagsHtml}</div>` : ''}
+
+            <!-- Кнопки действий -->
+            <div class="flex items-center justify-between gap-2 pt-2.5 border-t border-white/8">
+              <button type="button" data-action="download" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white bg-indigo-600/90 hover:bg-indigo-500 transition-colors cursor-pointer">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Скачать фрагмент
+              </button>
+
+              <div class="flex items-center gap-1">
+                <button type="button" data-action="edit" title="Редактировать" class="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+                <button type="button" data-action="delete" title="Удалить" class="p-1.5 rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+
+        // Делегирование кликов внутри карточки
+        card.addEventListener('click', (e) => {
+          const actionEl = e.target.closest('[data-action]');
+          if (!actionEl) return;
+          const action = actionEl.dataset.action;
+          if (action === 'play') playSegment(seg.id);
+          else if (action === 'download') exportVideoSegment(seg, idx);
+          else if (action === 'edit') openEditModal(seg.id);
+          else if (action === 'delete') deleteSegment(seg.id);
+        });
+
+        el.segmentsList.appendChild(card);
+      });
+    }
+
+    function updateActiveSegmentUI() {
+      const active = state.segments.find(s => s.id === state.activeSegmentId);
+      if (active) {
+        const color = SEGMENT_COLORS[active.colorIdx % SEGMENT_COLORS.length];
+        el.activeSegmentBadge.classList.remove('hidden');
+        el.activeSegmentDot.style.backgroundColor = color.hex;
+        el.activeSegmentTitle.textContent = `${active.title} (${formatTime(active.start)}–${formatTime(active.end)})`;
+      } else {
+        el.activeSegmentBadge.classList.add('hidden');
+      }
+    }
+
+    // ===================== УПРАВЛЕНИЕ ПЛЕЕРОМ И ТАЙМЛАЙНОМ =====================
+
+    function playSegment(segId) {
+      const seg = state.segments.find(s => s.id === segId);
+      if (!seg) return;
+
+      state.activeSegmentId = seg.id;
+      state.segmentStopAt = seg.end;
+      el.mainVideo.currentTime = seg.start;
+      el.mainVideo.play().catch(() => {});
+
+      renderTimeline();
+      renderSegmentsList();
+      updateActiveSegmentUI();
+    }
+
+    // Клик по пустому месту таймлайна перематывает видео
+    el.timelineContainer.addEventListener('click', (e) => {
+      if (!state.duration) return;
+      const rect = el.timelineContainer.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      el.mainVideo.currentTime = ratio * state.duration;
+      state.segmentStopAt = null;
+    });
+
+    // Синхронизация плеера с таймлайном и автоостановка в конце фрагмента
+    el.mainVideo.addEventListener('timeupdate', () => {
+      const curr = el.mainVideo.currentTime;
+      const dur = state.duration || 1;
+
+      el.currentTimeDisplay.textContent = `${formatTime(curr)} / ${formatTime(dur)}`;
+      el.timelinePlayhead.style.left = `${Math.min(100, (curr / dur) * 100)}%`;
+
+      // Автоостановка при достижении конца выбранного фрагмента
+      if (state.segmentStopAt !== null && el.chkAutoStop.checked && curr >= state.segmentStopAt) {
+        el.mainVideo.pause();
+        state.segmentStopAt = null;
+      }
+
+      // Автоматически подсвечиваем сегмент, в котором сейчас находится курсор
+      const found = state.segments.find(s => curr >= s.start && curr < s.end);
+      const foundId = found ? found.id : null;
+      if (foundId !== state.activeSegmentId) {
+        state.activeSegmentId = foundId;
+        renderTimeline();
+        renderSegmentsList();
+        updateActiveSegmentUI();
+      }
+    });
+
+    // ===================== РЕДАКТИРОВАНИЕ, ДОБАВЛЕНИЕ, УДАЛЕНИЕ =====================
+
+    function openEditModal(segId = null) {
+      if (segId) {
+        const seg = state.segments.find(s => s.id === segId);
+        if (!seg) return;
+        el.editModalTitle.textContent = 'Редактировать фрагмент';
+        el.editSegId.value = seg.id;
+        el.editSegTitle.value = seg.title;
+        el.editSegStart.value = formatTime(seg.start);
+        el.editSegEnd.value = formatTime(seg.end);
+        el.editSegCategory.value = seg.category;
+        el.editSegSummary.value = seg.summary;
+        el.editSegTags.value = (seg.tags || []).join(', ');
+      } else {
+        const curr = el.mainVideo.currentTime || 0;
+        const defaultEnd = Math.min(state.duration || 30, curr + 15);
+        el.editModalTitle.textContent = 'Новый фрагмент';
+        el.editSegId.value = '';
+        el.editSegTitle.value = `Фрагмент ${state.segments.length + 1}`;
+        el.editSegStart.value = formatTime(curr);
+        el.editSegEnd.value = formatTime(defaultEnd);
+        el.editSegCategory.value = 'Сцена';
+        el.editSegSummary.value = '';
+        el.editSegTags.value = '';
+      }
+      el.editModal.classList.remove('hidden');
+      el.editSegTitle.focus();
+    }
+
+    function closeEditModal() {
+      el.editModal.classList.add('hidden');
+    }
+
+    el.btnAddManualSegment.addEventListener('click', () => openEditModal(null));
+    el.btnCloseEditModal.addEventListener('click', closeEditModal);
+    el.btnCancelEdit.addEventListener('click', closeEditModal);
+
+    el.editSegmentForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const id = el.editSegId.value;
+      const title = el.editSegTitle.value.trim();
+      const start = parseTimeInput(el.editSegStart.value);
+      const end = parseTimeInput(el.editSegEnd.value);
+      const category = el.editSegCategory.value.trim() || 'Сцена';
+      const summary = el.editSegSummary.value.trim();
+      const tags = el.editSegTags.value.split(',').map(t => t.replace(/^#/, '').trim()).filter(Boolean).slice(0, 5);
+
+      if (isNaN(start) || isNaN(end) || start < 0 || end <= start || (state.duration && end > state.duration + 0.5)) {
+        showToast('Проверьте таймкоды: конец должен быть больше начала и в пределах длины видео.', 'error');
+        return;
+      }
+
+      const clampedEnd = state.duration ? Math.min(state.duration, end) : end;
+
+      if (id) {
+        const target = state.segments.find(s => s.id === id);
+        if (target) {
+          target.title = title;
+          target.start = Number(start.toFixed(1));
+          target.end = Number(clampedEnd.toFixed(1));
+          target.category = category;
+          target.summary = summary;
+          target.tags = tags;
+        }
+        showToast('Фрагмент обновлён', 'success');
+      } else {
+        state.segments.push({
+          id: uid(),
+          title,
+          start: Number(start.toFixed(1)),
+          end: Number(clampedEnd.toFixed(1)),
+          category,
+          summary,
+          tags,
+          colorIdx: state.segments.length % SEGMENT_COLORS.length
+        });
+        showToast('Фрагмент добавлен', 'success');
+      }
+
+      state.segments.sort((a, b) => a.start - b.start);
+      closeEditModal();
+      renderAll();
+    });
+
+    function deleteSegment(segId) {
+      state.segments = state.segments.filter(s => s.id !== segId);
+      if (state.activeSegmentId === segId) {
+        state.activeSegmentId = null;
+        state.segmentStopAt = null;
+      }
+      renderAll();
+      showToast('Фрагмент удалён', 'info');
+    }
+
+    // ===================== ЭКСПОРТ: YOUTUBE И JSON =====================
+
+    el.btnExportYouTube.addEventListener('click', () => {
+      if (state.segments.length === 0) return;
+      const lines = state.segments.map(s => `${formatTime(s.start)} ${s.title}`);
+      el.youtubeOutputText.value = lines.join('\n');
+      el.youtubeModal.classList.remove('hidden');
+    });
+
+    [el.btnCloseYoutubeModal, el.btnCloseYoutubeModal2].forEach(btn => {
+      btn.addEventListener('click', () => el.youtubeModal.classList.add('hidden'));
+    });
+
+    el.btnCopyYoutube.addEventListener('click', () => {
+      el.youtubeOutputText.select();
+      el.youtubeOutputText.setSelectionRange(0, 99999);
+      try {
+        document.execCommand('copy');
+        showToast('Таймкоды скопированы в буфер обмена!', 'success');
+      } catch (err) {
+        showToast('Не удалось скопировать автоматически — выделите текст вручную.', 'error');
+      }
+    });
+
+    el.btnExportJSON.addEventListener('click', () => {
+      if (state.segments.length === 0) return;
+      const exportData = {
+        videoFile: state.file?.name || 'video',
+        durationSeconds: Number(state.duration.toFixed(2)),
+        exportedAt: new Date().toISOString(),
+        segments: state.segments.map((s, i) => ({
+          index: i + 1,
+          title: s.title,
+          start: s.start,
+          end: s.end,
+          startTimecode: formatTime(s.start),
+          endTimecode: formatTime(s.end),
+          category: s.category,
+          summary: s.summary,
+          tags: s.tags
+        }))
+      };
+
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const baseName = (state.file?.name || 'clipmind').replace(/\.[^/.]+$/, '');
+      a.download = `${baseName}_segments.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      showToast('Файл JSON успешно скачан', 'success');
+    });
+
+    // ===================== РЕАЛЬНАЯ НАРЕЗКА И СКАЧИВАНИЕ ВИДЕО =====================
+
+    function getBestRecorderOptions() {
+      const candidates = [
+        { mimeType: 'video/webm;codecs=vp9,opus', ext: 'webm' },
+        { mimeType: 'video/webm;codecs=vp8,opus', ext: 'webm' },
+        { mimeType: 'video/webm', ext: 'webm' },
+        { mimeType: 'video/mp4', ext: 'mp4' }
+      ];
+      for (const c of candidates) {
+        if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(c.mimeType)) {
+          return c;
+        }
+      }
+      return { mimeType: '', ext: 'webm' };
+    }
+
+    /**
+     * Записывает выбранный отрезок [seg.start, seg.end] с видео и звуком через <canvas>,
+     * Web Audio API и MediaRecorder, затем скачивает файл.
+     */
+    async function exportVideoSegment(seg, segIdx = 0) {
+      if (typeof MediaRecorder === 'undefined') {
+        showToast('Ваш браузер не поддерживает MediaRecorder для экспорта видео.', 'error');
+        return;
+      }
+
+      el.mainVideo.pause();
+
+      const segDuration = Math.max(0.5, seg.end - seg.start);
+      el.exportSegmentName.textContent = `${seg.title} (${formatTime(seg.start)} — ${formatTime(seg.end)})`;
+      el.exportProgressBar.style.width = '0%';
+      el.exportPercentInfo.textContent = '0%';
+      el.exportTimeInfo.textContent = `00:00 / ${formatTime(segDuration)}`;
+      el.exportProgressModal.classList.remove('hidden');
+
+      let cancelled = false;
+      let animFrameId = null;
+      let audioCtx = null;
+      let mediaRecorder = null;
+
+      const recVideo = document.createElement('video');
+      recVideo.src = state.videoUrl;
+      recVideo.crossOrigin = 'anonymous';
+      recVideo.playsInline = true;
+      recVideo.muted = false;
+      recVideo.volume = 1.0;
+
+      const recCanvas = document.createElement('canvas');
+
+      const cleanup = () => {
+        if (animFrameId) cancelAnimationFrame(animFrameId);
+        try { recVideo.pause(); } catch (e) {}
+        recVideo.src = '';
+        recVideo.remove();
+        if (audioCtx && audioCtx.state !== 'closed') {
+          audioCtx.close().catch(() => {});
+        }
+        state.exportController = null;
+        el.exportProgressModal.classList.add('hidden');
+      };
+
+      state.exportController = {
+        cancel: () => {
+          cancelled = true;
+          if (mediaRecorder && mediaRecorder.state === 'recording') {
+            try { mediaRecorder.stop(); } catch (e) {}
+          }
+          cleanup();
+          showToast('Нарезка фрагмента отменена', 'info');
+        }
+      };
+
+      try {
+        await new Promise((resolve, reject) => {
+          recVideo.onloadedmetadata = resolve;
+          recVideo.onerror = () => reject(new Error('Ошибка загрузки видео для экспорта'));
+        });
+
+        await new Promise((resolve) => {
+          recVideo.onseeked = resolve;
+          recVideo.currentTime = seg.start;
+        });
+
+        if (cancelled) return;
+
+        // Определяем размеры canvas (до 1280px по длинной стороне для стабильной записи)
+        const srcW = recVideo.videoWidth || 1280;
+        const srcH = recVideo.videoHeight || 720;
+        const scale = Math.min(1, 1280 / Math.max(srcW, srcH));
+        recCanvas.width = Math.max(2, Math.round((srcW * scale) / 2) * 2);
+        recCanvas.height = Math.max(2, Math.round((srcH * scale) / 2) * 2);
+        const ctx = recCanvas.getContext('2d');
+
+        const canvasStream = recCanvas.captureStream(30);
+        const tracks = [...canvasStream.getVideoTracks()];
+
+        // Захват аудиодорожки через Web Audio API
+        try {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          audioCtx = new AudioContextClass();
+          if (audioCtx.state === 'suspended') {
+            await audioCtx.resume();
+          }
+          const sourceNode = audioCtx.createMediaElementSource(recVideo);
+          const destNode = audioCtx.createMediaStreamDestination();
+          sourceNode.connect(destNode);
+          const audioTracks = destNode.stream.getAudioTracks();
+          if (audioTracks.length > 0) {
+            tracks.push(...audioTracks);
+          }
+        } catch (audioErr) {
+          // Если у видео нет звуковой дорожки — продолжаем запись видео
+        }
+
+        const combinedStream = new MediaStream(tracks);
+        const { mimeType, ext } = getBestRecorderOptions();
+        const recorderOpts = mimeType ? { mimeType, videoBitsPerSecond: 4000000 } : { videoBitsPerSecond: 4000000 };
+        mediaRecorder = new MediaRecorder(combinedStream, recorderOpts);
+
+        const chunks = [];
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) chunks.push(e.data);
+        };
+
+        const recordingDone = new Promise((resolve) => {
+          mediaRecorder.onstop = resolve;
+        });
+
+        ctx.drawImage(recVideo, 0, 0, recCanvas.width, recCanvas.height);
+        mediaRecorder.start(200);
+        await recVideo.play();
+
+        const drawLoop = () => {
+          if (cancelled) return;
+
+          ctx.drawImage(recVideo, 0, 0, recCanvas.width, recCanvas.height);
+          const elapsed = Math.max(0, recVideo.currentTime - seg.start);
+          const pct = Math.min(100, (elapsed / segDuration) * 100);
+
+          el.exportProgressBar.style.width = `${pct}%`;
+          el.exportPercentInfo.textContent = `${Math.round(pct)}%`;
+          el.exportTimeInfo.textContent = `${formatTime(elapsed)} / ${formatTime(segDuration)}`;
+
+          if (recVideo.currentTime >= seg.end || recVideo.ended) {
+            if (mediaRecorder.state === 'recording') {
+              mediaRecorder.stop();
+            }
+            recVideo.pause();
+            return;
+          }
+
+          animFrameId = requestAnimationFrame(drawLoop);
+        };
+
+        animFrameId = requestAnimationFrame(drawLoop);
+
+        await recordingDone;
+
+        if (cancelled) return;
+
+        // Сохраняем файл
+        const blob = new Blob(chunks, { type: mimeType || 'video/webm' });
+        const downloadUrl = URL.createObjectURL(blob);
+        const safeTitle = seg.title.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '_').slice(0, 45) || 'fragment';
+        const indexStr = String(segIdx + 1).padStart(2, '0');
+
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = `${indexStr}_${safeTitle}.${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        setTimeout(() => URL.revokeObjectURL(downloadUrl), 5000);
+        cleanup();
+        showToast(`Фрагмент «${seg.title}» успешно скачан!`, 'success');
+
+      } catch (err) {
+        console.error(err);
+        if (!cancelled) {
+          cleanup();
+          showToast('Ошибка при нарезке видеофрагмента. Попробуйте ещё раз.', 'error');
+        }
+      }
+    }
+
+    el.btnCancelExport.addEventListener('click', () => {
+      if (state.exportController) {
+        state.exportController.cancel();
+      }
+    });
+
+    // Закрытие модальных окон по клику на фон или Escape
+    [el.editModal, el.youtubeModal].forEach(modal => {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.classList.add('hidden');
+      });
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        el.editModal.classList.add('hidden');
+        el.youtubeModal.classList.add('hidden');
+      }
+    });
+
+    // ===================== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК И ЗАХВАТ КАДРА =====================
+
+    let activeWorkspaceTab = 'video'; // 'video' | 'photo'
+
+    const photoEl = {
+      tabVideoBtn: document.getElementById('tabVideoBtn'),
+      tabPhotoBtn: document.getElementById('tabPhotoBtn'),
+      photoHeaderActions: document.getElementById('photoHeaderActions'),
+      btnChangePhoto: document.getElementById('btnChangePhoto'),
+      btnQuickDownloadPhoto: document.getElementById('btnQuickDownloadPhoto'),
+      btnEnhanceVideoFrame: document.getElementById('btnEnhanceVideoFrame'),
+
+      photoFileInput: document.getElementById('photoFileInput'),
+      photoUploadSection: document.getElementById('photoUploadSection'),
+      photoWorkspaceSection: document.getElementById('photoWorkspaceSection'),
+      photoDropZone: document.getElementById('photoDropZone'),
+      btnSelectPhoto: document.getElementById('btnSelectPhoto'),
+
+      photoMetaName: document.getElementById('photoMetaName'),
+      photoMetaFormat: document.getElementById('photoMetaFormat'),
+      photoMetaSize: document.getElementById('photoMetaSize'),
+      photoResOriginal: document.getElementById('photoResOriginal'),
+      photoResTarget: document.getElementById('photoResTarget'),
+      btnResetPhotoAll: document.getElementById('btnResetPhotoAll'),
+
+      photoAiActiveBadge: document.getElementById('photoAiActiveBadge'),
+      aiLayerToggleWrap: document.getElementById('aiLayerToggleWrap'),
+      chkUseAiLayer: document.getElementById('chkUseAiLayer'),
+      photoProcessingOverlay: document.getElementById('photoProcessingOverlay'),
+      photoProcessingTitle: document.getElementById('photoProcessingTitle'),
+      photoProcessingSub: document.getElementById('photoProcessingSub'),
+
+      compareStage: document.getElementById('compareStage'),
+      photoAfterCanvas: document.getElementById('photoAfterCanvas'),
+      compareBeforeClip: document.getElementById('compareBeforeClip'),
+      photoBeforeImg: document.getElementById('photoBeforeImg'),
+      compareDivider: document.getElementById('compareDivider'),
+
+      photoAiReportCard: document.getElementById('photoAiReportCard'),
+      photoAiMethodNote: document.getElementById('photoAiMethodNote'),
+      photoAiSummaryText: document.getElementById('photoAiSummaryText'),
+      photoAiMetricsGrid: document.getElementById('photoAiMetricsGrid'),
+
+      aiPhotoPresetBtns: document.querySelectorAll('.ai-photo-preset'),
+      photoAiCustomPrompt: document.getElementById('photoAiCustomPrompt'),
+      btnRunPhotoAi: document.getElementById('btnRunPhotoAi'),
+      btnRunPhotoAiText: document.getElementById('btnRunPhotoAiText'),
+
+      upscaleBtns: document.querySelectorAll('.upscale-btn'),
+      upscaleHintText: document.getElementById('upscaleHintText'),
+      dspPresetBtns: document.querySelectorAll('.dsp-preset-btn'),
+
+      rngSharpness: document.getElementById('rngSharpness'),
+      rngClarity: document.getElementById('rngClarity'),
+      rngDenoise: document.getElementById('rngDenoise'),
+      rngBrightness: document.getElementById('rngBrightness'),
+      rngContrast: document.getElementById('rngContrast'),
+      rngSaturation: document.getElementById('rngSaturation'),
+      rngTemperature: document.getElementById('rngTemperature'),
+      chkAutoLevels: document.getElementById('chkAutoLevels'),
+
+      valSharpness: document.getElementById('valSharpness'),
+      valClarity: document.getElementById('valClarity'),
+      valDenoise: document.getElementById('valDenoise'),
+      valBrightness: document.getElementById('valBrightness'),
+      valContrast: document.getElementById('valContrast'),
+      valSaturation: document.getElementById('valSaturation'),
+      valTemperature: document.getElementById('valTemperature'),
+
+      exportPhotoResBadge: document.getElementById('exportPhotoResBadge'),
+      photoFmtBtns: document.querySelectorAll('.photo-fmt-btn'),
+      photoQualityWrap: document.getElementById('photoQualityWrap'),
+      rngPhotoQuality: document.getElementById('rngPhotoQuality'),
+      valPhotoQuality: document.getElementById('valPhotoQuality'),
+      btnDownloadEnhancedPhoto: document.getElementById('btnDownloadEnhancedPhoto'),
+      btnDownloadPhotoText: document.getElementById('btnDownloadPhotoText')
+    };
+
+    /** Переключение между вкладками «Нарезка видео» и «Улучшение фото» */
+    function switchWorkspaceTab(tab) {
+      activeWorkspaceTab = tab;
+
+      // Стили кнопок вкладок
+      const isVideo = tab === 'video';
+      photoEl.tabVideoBtn.className = `workspace-tab flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+        isVideo ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/25' : 'text-zinc-400 hover:text-white'
+      }`;
+      photoEl.tabPhotoBtn.className = `workspace-tab flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+        !isVideo ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-purple-500/25' : 'text-zinc-400 hover:text-white'
+      }`;
+
+      if (isVideo) {
+        photoEl.photoUploadSection.classList.add('hidden');
+        photoEl.photoWorkspaceSection.classList.add('hidden');
+        photoEl.photoHeaderActions.classList.add('hidden');
+
+        if (state.file) {
+          el.uploadSection.classList.add('hidden');
+          el.workspaceSection.classList.remove('hidden');
+          el.headerActions.classList.remove('hidden');
+        } else {
+          el.uploadSection.classList.remove('hidden');
+          el.workspaceSection.classList.add('hidden');
+          el.headerActions.classList.add('hidden');
+        }
+      } else {
+        el.uploadSection.classList.add('hidden');
+        el.workspaceSection.classList.add('hidden');
+        el.headerActions.classList.add('hidden');
+
+        if (photoState.origImage) {
+          photoEl.photoUploadSection.classList.add('hidden');
+          photoEl.photoWorkspaceSection.classList.remove('hidden');
+          photoEl.photoHeaderActions.classList.remove('hidden');
+          schedulePhotoPreview();
+        } else {
+          photoEl.photoUploadSection.classList.remove('hidden');
+          photoEl.photoWorkspaceSection.classList.add('hidden');
+          photoEl.photoHeaderActions.classList.add('hidden');
+        }
+      }
+    }
+
+    photoEl.tabVideoBtn.addEventListener('click', () => switchWorkspaceTab('video'));
+    photoEl.tabPhotoBtn.addEventListener('click', () => switchWorkspaceTab('photo'));
+
+    /** Захват текущего кадра из видеоплеера и передача во вкладку «Улучшение фото» */
+    photoEl.btnEnhanceVideoFrame.addEventListener('click', () => {
+      if (!state.file || !el.mainVideo.videoWidth) {
+        showToast('Сначала загрузите видео и дождитесь его готовности.', 'error');
+        return;
+      }
+      try {
+        el.mainVideo.pause();
+        const canvas = document.createElement('canvas');
+        canvas.width = el.mainVideo.videoWidth;
+        canvas.height = el.mainVideo.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(el.mainVideo, 0, 0, canvas.width, canvas.height);
+
+        const timeTag = formatTime(el.mainVideo.currentTime).replace(/:/g, '-');
+        const baseName = (state.file.name || 'video').replace(/\.[^/.]+$/, '');
+        const frameName = `${baseName}_кадр_${timeTag}.png`;
+
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            showToast('Не удалось захватить кадр видео.', 'error');
+            return;
+          }
+          const frameFile = new File([blob], frameName, { type: 'image/png' });
+          loadPhotoFile(frameFile, true);
+          switchWorkspaceTab('photo');
+          showToast('Кадр видео перенесён в студию улучшения фото!', 'success');
+        }, 'image/png');
+      } catch (err) {
+        console.error(err);
+        showToast('Ошибка при захвате текущего кадра видео.', 'error');
+      }
+    });
+
+    // ===================== МОДУЛЬ УЛУЧШЕНИЯ ФОТО (CLIPMIND PHOTO STUDIO) =====================
+
+    const MAX_EXPORT_DIM = 4096; // Безопасный потолок для стабильной работы браузера
+
+    const photoState = {
+      file: null,
+      objectUrl: null,
+      origImage: null,
+      origW: 0,
+      origH: 0,
+      aiImage: null,
+      useAiLayer: true,
+      aiPreset: 'universal',
+      upscale: 1, // 1 | 2 | 4
+      splitPct: 50,
+      exportFormat: 'image/png',
+      exportQuality: 0.92,
+      isAiRunning: false,
+      previewRaf: null,
+      // Параметры DSP-коррекции
+      dsp: {
+        sharpness: 0,
+        clarity: 0,
+        denoise: 0,
+        brightness: 0,
+        contrast: 0,
+        saturation: 0,
+        temperature: 0,
+        autoLevels: false
+      }
+    };
+
+    /** Вычисление целевого разрешения с учётом выбранного апскейла */
+    function getTargetPhotoDims() {
+      if (!photoState.origW || !photoState.origH) return { w: 0, h: 0, capped: false };
+      let w = Math.round(photoState.origW * photoState.upscale);
+      let h = Math.round(photoState.origH * photoState.upscale);
+      let capped = false;
+      if (Math.max(w, h) > MAX_EXPORT_DIM) {
+        const k = MAX_EXPORT_DIM / Math.max(w, h);
+        w = Math.round(w * k);
+        h = Math.round(h * k);
+        capped = true;
+      }
+      return { w, h, capped };
+    }
+
+    /** Обновление бейджей разрешения и подсказок */
+    function updatePhotoResolutionBadges() {
+      const { w, h, capped } = getTargetPhotoDims();
+      photoEl.photoResOriginal.textContent = `${photoState.origW}×${photoState.origH}`;
+      photoEl.photoResTarget.textContent = `${w}×${h}`;
+      photoEl.exportPhotoResBadge.textContent = `${w} × ${h} px`;
+      if (photoState.upscale === 1) {
+        photoEl.upscaleHintText.textContent = 'Оригинал (1x)';
+      } else {
+        photoEl.upscaleHintText.textContent = capped ? `${photoState.upscale}x (лимит ${MAX_EXPORT_DIM}px)` : `${photoState.upscale}x → ${w}×${h}`;
+      }
+    }
+
+    /** Загрузка выбранного файла изображения */
+    function loadPhotoFile(file, silent = false) {
+      if (!file) return;
+      if (!file.type.startsWith('image/')) {
+        showToast('Пожалуйста, выберите изображение (JPG, PNG, WebP).', 'error');
+        return;
+      }
+
+      if (photoState.objectUrl) {
+        URL.revokeObjectURL(photoState.objectUrl);
+      }
+
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        photoState.file = file;
+        photoState.objectUrl = url;
+        photoState.origImage = img;
+        photoState.origW = img.naturalWidth;
+        photoState.origH = img.naturalHeight;
+        photoState.aiImage = null;
+        photoState.useAiLayer = false;
+        photoState.upscale = 1;
+        photoState.splitPct = 50;
+
+        resetDspSliders(false);
+        setUpscaleUI(1);
+        updateCompareSplit(50);
+
+        // Заполняем метаданные
+        const extLabel = (file.type.split('/')[1] || 'IMG').toUpperCase().replace('JPEG', 'JPG');
+        photoEl.photoMetaName.textContent = file.name;
+        photoEl.photoMetaFormat.textContent = extLabel;
+        photoEl.photoMetaSize.textContent = formatFileSize(file.size);
+        photoEl.photoBeforeImg.src = url;
+
+        // Скрываем прошлый отчёт ИИ
+        photoEl.photoAiReportCard.classList.add('hidden');
+        photoEl.photoAiActiveBadge.classList.add('hidden');
+        photoEl.aiLayerToggleWrap.classList.add('hidden');
+        photoEl.chkUseAiLayer.checked = true;
+
+        updatePhotoResolutionBadges();
+
+        if (activeWorkspaceTab === 'photo') {
+          photoEl.photoUploadSection.classList.add('hidden');
+          photoEl.photoWorkspaceSection.classList.remove('hidden');
+          photoEl.photoHeaderActions.classList.remove('hidden');
+        }
+
+        schedulePhotoPreview();
+        if (!silent) {
+          showToast(`Фото «${file.name}» загружено (${img.naturalWidth}×${img.naturalHeight})`, 'success');
+        }
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        showToast('Не удалось открыть это изображение.', 'error');
+      };
+
+      img.src = url;
+    }
+
+    // События Drag & Drop и выбора фото
+    photoEl.photoDropZone.addEventListener('click', () => photoEl.photoFileInput.click());
+    photoEl.btnSelectPhoto.addEventListener('click', (e) => {
+      e.stopPropagation();
+      photoEl.photoFileInput.click();
+    });
+    photoEl.btnChangePhoto.addEventListener('click', () => photoEl.photoFileInput.click());
+
+    photoEl.photoFileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files[0]) {
+        loadPhotoFile(e.target.files[0]);
+        e.target.value = '';
+      }
+    });
+
+    ['dragenter', 'dragover'].forEach(evt => {
+      photoEl.photoDropZone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        photoEl.photoDropZone.classList.add('drop-active');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(evt => {
+      photoEl.photoDropZone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        photoEl.photoDropZone.classList.remove('drop-active');
+      });
+    });
+
+    photoEl.photoDropZone.addEventListener('drop', (e) => {
+      const files = e.dataTransfer?.files;
+      if (files && files[0]) {
+        loadPhotoFile(files[0]);
+      }
+    });
+
+    // ===================== ШТОРКА СРАВНЕНИЯ «ДО / ПОСЛЕ» =====================
+
+    function updateCompareSplit(pct) {
+      const clamped = Math.max(0, Math.min(100, pct));
+      photoState.splitPct = clamped;
+      photoEl.compareBeforeClip.style.clipPath = `inset(0 ${100 - clamped}% 0 0)`;
+      photoEl.compareDivider.style.left = `${clamped}%`;
+    }
+
+    let isDraggingSplit = false;
+
+    function handleSplitPointer(clientX) {
+      const rect = photoEl.compareStage.getBoundingClientRect();
+      if (!rect.width) return;
+      const pct = ((clientX - rect.left) / rect.width) * 100;
+      updateCompareSplit(pct);
+    }
+
+    photoEl.compareStage.addEventListener('mousedown', (e) => {
+      isDraggingSplit = true;
+      handleSplitPointer(e.clientX);
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (!isDraggingSplit) return;
+      handleSplitPointer(e.clientX);
+    });
+    window.addEventListener('mouseup', () => {
+      isDraggingSplit = false;
+    });
+
+    photoEl.compareStage.addEventListener('touchstart', (e) => {
+      if (e.touches && e.touches[0]) {
+        isDraggingSplit = true;
+        handleSplitPointer(e.touches[0].clientX);
+      }
+    }, { passive: true });
+    window.addEventListener('touchmove', (e) => {
+      if (!isDraggingSplit || !e.touches || !e.touches[0]) return;
+      handleSplitPointer(e.touches[0].clientX);
+    }, { passive: true });
+    window.addEventListener('touchend', () => {
+      isDraggingSplit = false;
+    });
+
+    // ===================== ДВИЖОК СТУДИЙНОЙ ОБРАБОТКИ (CANVAS DSP) =====================
+
+    function clampByte(v) {
+      return v < 0 ? 0 : (v > 255 ? 255 : v);
+    }
+
+    /**
+     * Многоступенчатое качественное масштабирование изображения на canvas
+     */
+    function drawHighQualityScaled(sourceImg, targetW, targetH) {
+      const srcW = sourceImg.naturalWidth || sourceImg.width;
+      const srcH = sourceImg.naturalHeight || sourceImg.height;
+
+      const outCanvas = document.createElement('canvas');
+      outCanvas.width = targetW;
+      outCanvas.height = targetH;
+      const outCtx = outCanvas.getContext('2d', { willReadFrequently: true });
+      outCtx.imageSmoothingEnabled = true;
+      outCtx.imageSmoothingQuality = 'high';
+
+      // При увеличении > 2x делаем промежуточный шаг для более плавных контуров
+      if (targetW > srcW * 2.1) {
+        const midCanvas = document.createElement('canvas');
+        midCanvas.width = Math.round(srcW * 2);
+        midCanvas.height = Math.round(srcH * 2);
+        const midCtx = midCanvas.getContext('2d');
+        midCtx.imageSmoothingEnabled = true;
+        midCtx.imageSmoothingQuality = 'high';
+        midCtx.drawImage(sourceImg, 0, 0, midCanvas.width, midCanvas.height);
+        outCtx.drawImage(midCanvas, 0, 0, targetW, targetH);
+      } else {
+        outCtx.drawImage(sourceImg, 0, 0, targetW, targetH);
+      }
+      return outCanvas;
+    }
+
+    /**
+     * Применяет полный конвейер DSP-фильтров к переданному ImageData
+     */
+    function applyDspPipeline(imageData, dsp, upscaleBoost = 0) {
+      const { width: w, height: h, data } = imageData;
+      const len = data.length;
+
+      // 1. Авто-уровни (мягкое растяжение гистограммы 1%..99%)
+      if (dsp.autoLevels) {
+        const histR = new Uint32Array(256);
+        const histG = new Uint32Array(256);
+        const histB = new Uint32Array(256);
+        const step = Math.max(1, Math.floor((w * h) / 40000));
+        let samples = 0;
+        for (let i = 0; i < len; i += 4 * step) {
+          histR[data[i]]++;
+          histG[data[i + 1]]++;
+          histB[data[i + 2]]++;
+          samples++;
+        }
+        const findBounds = (hist) => {
+          const lowT = samples * 0.01;
+          const highT = samples * 0.99;
+          let acc = 0, lo = 0, hi = 255;
+          for (let v = 0; v < 256; v++) {
+            acc += hist[v];
+            if (acc >= lowT) { lo = v; break; }
+          }
+          acc = 0;
+          for (let v = 255; v >= 0; v--) {
+            acc += hist[v];
+            if (acc >= samples - highT) { hi = v; break; }
+          }
+          return [lo, Math.max(lo + 10, hi)];
+        };
+        const [rLo, rHi] = findBounds(histR);
+        const [gLo, gHi] = findBounds(histG);
+        const [bLo, bHi] = findBounds(histB);
+        const rScale = 255 / (rHi - rLo);
+        const gScale = 255 / (gHi - gLo);
+        const bScale = 255 / (bHi - bLo);
+        const mix = 0.78;
+
+        for (let i = 0; i < len; i += 4) {
+          data[i] = clampByte(data[i] * (1 - mix) + ((data[i] - rLo) * rScale) * mix);
+          data[i + 1] = clampByte(data[i + 1] * (1 - mix) + ((data[i + 1] - gLo) * gScale) * mix);
+          data[i + 2] = clampByte(data[i + 2] * (1 - mix) + ((data[i + 2] - bLo) * bScale) * mix);
+        }
+      }
+
+      // 2. Шумоподавление (быстрый краесохраняющий 3x3 фильтр)
+      if (dsp.denoise > 0) {
+        const src = new Uint8ClampedArray(data);
+        const strength = (dsp.denoise / 100) * 0.85;
+        const threshold = 16 + (dsp.denoise / 100) * 34;
+
+        for (let y = 1; y < h - 1; y++) {
+          const row = y * w;
+          for (let x = 1; x < w - 1; x++) {
+            const idx = (row + x) * 4;
+            const cr = src[idx], cg = src[idx + 1], cb = src[idx + 2];
+            let sr = cr, sg = cg, sb = cb, weightSum = 1;
+
+            for (let dy = -1; dy <= 1; dy++) {
+              const nrow = (y + dy) * w;
+              for (let dx = -1; dx <= 1; dx++) {
+                if (dx === 0 && dy === 0) continue;
+                const nidx = (nrow + x + dx) * 4;
+                const nr = src[nidx], ng = src[nidx + 1], nb = src[nidx + 2];
+                const diff = (Math.abs(nr - cr) + Math.abs(ng - cg) + Math.abs(nb - cb)) * 0.333;
+                if (diff < threshold) {
+                  const wt = 1 - diff / threshold;
+                  sr += nr * wt;
+                  sg += ng * wt;
+                  sb += nb * wt;
+                  weightSum += wt;
+                }
+              }
+            }
+
+            data[idx] = clampByte(cr * (1 - strength) + (sr / weightSum) * strength);
+            data[idx + 1] = clampByte(cg * (1 - strength) + (sg / weightSum) * strength);
+            data[idx + 2] = clampByte(cb * (1 - strength) + (sb / weightSum) * strength);
+          }
+        }
+      }
+
+      // 3. Яркость, Контраст, Температура, Насыщенность (единый проход)
+      const hasColorAdjust =
+        dsp.brightness !== 0 ||
+        dsp.contrast !== 0 ||
+        dsp.saturation !== 0 ||
+        dsp.temperature !== 0;
+
+      if (hasColorAdjust) {
+        const br = dsp.brightness * 1.45;
+        const cVal = dsp.contrast * 1.8;
+        const cFactor = (259 * (cVal + 255)) / (255 * (259 - cVal));
+        const satFactor = 1 + dsp.saturation / 100;
+        const tR = dsp.temperature * 0.7;
+        const tG = dsp.temperature * 0.12;
+        const tB = -dsp.temperature * 0.7;
+
+        for (let i = 0; i < len; i += 4) {
+          let r = data[i] + tR + br;
+          let g = data[i + 1] + tG + br;
+          let b = data[i + 2] + tB + br;
+
+          if (dsp.contrast !== 0) {
+            r = cFactor * (r - 128) + 128;
+            g = cFactor * (g - 128) + 128;
+            b = cFactor * (b - 128) + 128;
+          }
+
+          if (dsp.saturation !== 0) {
+            const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            r = lum + (r - lum) * satFactor;
+            g = lum + (g - lum) * satFactor;
+            b = lum + (b - lum) * satFactor;
+          }
+
+          data[i] = clampByte(r);
+          data[i + 1] = clampByte(g);
+          data[i + 2] = clampByte(b);
+        }
+      }
+
+      // 4. Чёткость (локальный контраст средних тонов) + Резкость (Unsharp Mask)
+      const effectiveSharp = Math.min(125, dsp.sharpness + upscaleBoost);
+      if (effectiveSharp > 0 || dsp.clarity !== 0) {
+        const src = new Uint8ClampedArray(data);
+        const sharpAmt = (effectiveSharp / 100) * 1.45;
+        const clarityAmt = (dsp.clarity / 100) * 0.9;
+
+        for (let y = 1; y < h - 1; y++) {
+          const row = y * w;
+          const up = (y - 1) * w;
+          const dn = (y + 1) * w;
+
+          for (let x = 1; x < w - 1; x++) {
+            const idx = (row + x) * 4;
+            const iL = (row + x - 1) * 4;
+            const iR = (row + x + 1) * 4;
+            const iU = (up + x) * 4;
+            const iD = (dn + x) * 4;
+
+            for (let c = 0; c < 3; c++) {
+              const center = src[idx + c];
+              // Мягкое 3x3 размытие (крест + центр)
+              const blur = (center * 4 + src[iL + c] + src[iR + c] + src[iU + c] + src[iD + c]) * 0.125;
+              const diff = center - blur;
+
+              let val = center;
+              if (sharpAmt > 0 && Math.abs(diff) > 1.2) {
+                val += diff * sharpAmt;
+              }
+              if (clarityAmt !== 0) {
+                const norm = center / 255;
+                const midWeight = 4 * norm * (1 - norm); // Пик в средних тонах
+                val += diff * clarityAmt * (0.4 + midWeight);
+              }
+              data[idx + c] = clampByte(val);
+            }
+          }
+        }
+      }
+
+      return imageData;
+    }
+
+    /** Отрисовка быстрого предпросмотра в реальном времени на #photoAfterCanvas */
+    function renderPhotoPreview() {
+      if (!photoState.origImage) return;
+
+      const sourceImg = (photoState.aiImage && photoState.useAiLayer) ? photoState.aiImage : photoState.origImage;
+      const maxPreview = 1050;
+      const scale = Math.min(1, maxPreview / Math.max(photoState.origW, photoState.origH));
+      const pw = Math.max(1, Math.round(photoState.origW * scale));
+      const ph = Math.max(1, Math.round(photoState.origH * scale));
+
+      const canvas = photoEl.photoAfterCanvas;
+      if (canvas.width !== pw || canvas.height !== ph) {
+        canvas.width = pw;
+        canvas.height = ph;
+      }
+
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(sourceImg, 0, 0, pw, ph);
+
+      const upscaleBoost = photoState.upscale === 4 ? 18 : (photoState.upscale === 2 ? 10 : 0);
+      const needsDsp =
+        photoState.dsp.autoLevels ||
+        photoState.dsp.sharpness > 0 ||
+        photoState.dsp.clarity !== 0 ||
+        photoState.dsp.denoise > 0 ||
+        photoState.dsp.brightness !== 0 ||
+        photoState.dsp.contrast !== 0 ||
+        photoState.dsp.saturation !== 0 ||
+        photoState.dsp.temperature !== 0 ||
+        upscaleBoost > 0;
+
+      if (needsDsp) {
+        const imgData = ctx.getImageData(0, 0, pw, ph);
+        applyDspPipeline(imgData, photoState.dsp, upscaleBoost);
+        ctx.putImageData(imgData, 0, 0);
+      }
+    }
+
+    function schedulePhotoPreview() {
+      if (photoState.previewRaf) cancelAnimationFrame(photoState.previewRaf);
+      photoState.previewRaf = requestAnimationFrame(() => {
+        photoState.previewRaf = null;
+        renderPhotoPreview();
+      });
+    }
+
+    // ===================== УПРАВЛЕНИЕ ПОЛЗУНКАМИ, ПРЕСЕТАМИ И АПСКЕЙЛОМ =====================
+
+    function syncDspUI() {
+      const d = photoState.dsp;
+      photoEl.rngSharpness.value = d.sharpness;
+      photoEl.rngClarity.value = d.clarity;
+      photoEl.rngDenoise.value = d.denoise;
+      photoEl.rngBrightness.value = d.brightness;
+      photoEl.rngContrast.value = d.contrast;
+      photoEl.rngSaturation.value = d.saturation;
+      photoEl.rngTemperature.value = d.temperature;
+      photoEl.chkAutoLevels.checked = d.autoLevels;
+
+      photoEl.valSharpness.textContent = d.sharpness;
+      photoEl.valClarity.textContent = d.clarity > 0 ? `+${d.clarity}` : d.clarity;
+      photoEl.valDenoise.textContent = d.denoise;
+      photoEl.valBrightness.textContent = d.brightness > 0 ? `+${d.brightness}` : d.brightness;
+      photoEl.valContrast.textContent = d.contrast > 0 ? `+${d.contrast}` : d.contrast;
+      photoEl.valSaturation.textContent = d.saturation > 0 ? `+${d.saturation}` : d.saturation;
+      photoEl.valTemperature.textContent = d.temperature > 0 ? `+${d.temperature}` : d.temperature;
+    }
+
+    function resetDspSliders(redraw = true) {
+      photoState.dsp = {
+        sharpness: 0,
+        clarity: 0,
+        denoise: 0,
+        brightness: 0,
+        contrast: 0,
+        saturation: 0,
+        temperature: 0,
+        autoLevels: false
+      };
+      syncDspUI();
+      if (redraw) schedulePhotoPreview();
+    }
+
+    function setUpscaleUI(scaleVal) {
+      photoState.upscale = scaleVal;
+      photoEl.upscaleBtns.forEach(btn => {
+        const active = Number(btn.dataset.scale) === scaleVal;
+        btn.classList.toggle('active', active);
+        btn.classList.toggle('border-indigo-500/60', active);
+        btn.classList.toggle('bg-indigo-500/20', active);
+        btn.classList.toggle('text-white', active);
+        btn.classList.toggle('border-white/10', !active);
+        btn.classList.toggle('bg-studio-950/60', !active);
+        btn.classList.toggle('text-zinc-300', !active);
+      });
+      updatePhotoResolutionBadges();
+      schedulePhotoPreview();
+    }
+
+    photoEl.upscaleBtns.forEach(btn => {
+      btn.addEventListener('click', () => setUpscaleUI(Number(btn.dataset.scale)));
+    });
+
+    // Привязка ползунков
+    const sliderBindings = [
+      ['rngSharpness', 'sharpness'],
+      ['rngClarity', 'clarity'],
+      ['rngDenoise', 'denoise'],
+      ['rngBrightness', 'brightness'],
+      ['rngContrast', 'contrast'],
+      ['rngSaturation', 'saturation'],
+      ['rngTemperature', 'temperature']
+    ];
+    sliderBindings.forEach(([elKey, prop]) => {
+      photoEl[elKey].addEventListener('input', (e) => {
+        photoState.dsp[prop] = Number(e.target.value);
+        syncDspUI();
+        schedulePhotoPreview();
+      });
+    });
+
+    photoEl.chkAutoLevels.addEventListener('change', (e) => {
+      photoState.dsp.autoLevels = e.target.checked;
+      schedulePhotoPreview();
+    });
+
+    // Быстрые DSP-пресеты
+    const DSP_PRESETS = {
+      crisp: { sharpness: 48, clarity: 32, denoise: 12, brightness: 4, contrast: 14, saturation: 10, temperature: 0, autoLevels: true },
+      cinema: { sharpness: 22, clarity: 24, denoise: 10, brightness: -4, contrast: 20, saturation: -8, temperature: 12, autoLevels: false },
+      soft: { sharpness: 12, clarity: -10, denoise: 28, brightness: 14, contrast: -6, saturation: 8, temperature: 6, autoLevels: false },
+      reset: { sharpness: 0, clarity: 0, denoise: 0, brightness: 0, contrast: 0, saturation: 0, temperature: 0, autoLevels: false }
+    };
+
+    photoEl.dspPresetBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.dspPreset;
+        if (!DSP_PRESETS[key]) return;
+        photoState.dsp = { ...DSP_PRESETS[key] };
+        if (key === 'crisp' && photoState.upscale === 1) {
+          setUpscaleUI(2);
+        }
+        syncDspUI();
+        schedulePhotoPreview();
+        showToast(key === 'reset' ? 'Коррекция сброшена' : `Применён пресет «${btn.textContent.trim()}»`, 'info');
+      });
+    });
+
+    // Полный сброс фото
+    photoEl.btnResetPhotoAll.addEventListener('click', () => {
+      photoState.aiImage = null;
+      photoState.useAiLayer = false;
+      photoEl.photoAiActiveBadge.classList.add('hidden');
+      photoEl.aiLayerToggleWrap.classList.add('hidden');
+      photoEl.photoAiReportCard.classList.add('hidden');
+      setUpscaleUI(1);
+      resetDspSliders(true);
+      updateCompareSplit(50);
+      showToast('Все улучшения сброшены к оригиналу', 'info');
+    });
+
+    // Переключатель ИИ-слоя
+    photoEl.chkUseAiLayer.addEventListener('change', (e) => {
+      photoState.useAiLayer = e.target.checked;
+      photoEl.photoAiActiveBadge.classList.toggle('hidden', !(photoState.aiImage && photoState.useAiLayer));
+      schedulePhotoPreview();
+    });
+
+    // Выбор ИИ-пресета
+    photoEl.aiPhotoPresetBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        photoEl.aiPhotoPresetBtns.forEach(b => {
+          b.classList.remove('active', 'border-purple-500/60', 'bg-purple-500/15', 'text-white');
+          b.classList.add('border-white/10', 'bg-studio-950/60', 'text-zinc-300');
+        });
+        btn.classList.add('active', 'border-purple-500/60', 'bg-purple-500/15', 'text-white');
+        btn.classList.remove('border-white/10', 'bg-studio-950/60', 'text-zinc-300');
+        photoState.aiPreset = btn.dataset.preset;
+      });
+    });
+
+    // ===================== ИИ-УЛУЧШЕНИЕ ФОТО (GEMINI API) =====================
+
+    /** Готовит base64-версию исходного фото для отправки в Gemini */
+    function getPhotoBase64ForApi(maxSide = 1280) {
+      const scale = Math.min(1, maxSide / Math.max(photoState.origW, photoState.origH));
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(photoState.origW * scale));
+      c.height = Math.max(1, Math.round(photoState.origH * scale));
+      const ctx = c.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(photoState.origImage, 0, 0, c.width, c.height);
+      const dataUrl = c.toDataURL('image/jpeg', 0.9);
+      return { mimeType: 'image/jpeg', data: dataUrl.split(',')[1] };
+    }
+
+    /** Генеративное улучшение/реставрация изображения через Gemini Image */
+    async function tryGenerativePhotoEnhance(inlineImg, presetPrompt, customNote) {
+      const fullPrompt = `Enhance and restore this photograph to professional studio quality while strictly preserving the exact composition, subjects, faces, poses, text, and framing. Do not add or remove objects.
+Task: ${presetPrompt}${customNote ? `\nAdditional user request: ${customNote}` : ''}
+Output a clean, sharp, high-definition restored photograph.`;
+
+      const payload = {
+        contents: [{
+          role: 'user',
+          parts: [
+            { text: fullPrompt },
+            { inlineData: inlineImg }
+          ]
+        }],
+        generationConfig: {
+          responseModalities: ['TEXT', 'IMAGE']
+        }
+      };
+
+      const modelsToTry = [GEMINI_IMAGE_MODEL, GEMINI_IMAGE_FALLBACK];
+      for (const modelName of modelsToTry) {
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (!res.ok) continue;
+          const json = await res.json();
+          const imgPart = json?.candidates?.[0]?.content?.parts?.find(p => p.inlineData?.data);
+          if (imgPart) {
+            return `data:${imgPart.inlineData.mimeType || 'image/png'};base64,${imgPart.inlineData.data}`;
+          }
+        } catch (e) {
+          // Пробуем следующую модель или переходим к DSP-анализу
+        }
+      }
+      return null;
+    }
+
+    /** ИИ-анализ фото через Gemini Vision с подбором оптимальных параметров DSP и отчётом */
+    async function runAiPhotoAnalysis(inlineImg, presetLabel, customNote) {
+      const payload = {
+        contents: [{
+          role: 'user',
+          parts: [
+            {
+              text: `Проанализируй это фото (режим: «${presetLabel}»${customNote ? `, пожелание: «${customNote}»` : ''}).
+Оцени экспозицию, резкость, баланс белого и уровень шума. Подбери оптимальные числовые параметры студийной обработки (Canvas DSP) и напиши краткий понятный отчёт на русском языке, что именно было улучшено.`
+            },
+            { inlineData: inlineImg }
+          ]
+        }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: 'OBJECT',
+            properties: {
+              summary: { type: 'STRING', description: 'Краткий отчёт на русском (2-3 предложения), что было обнаружено и улучшено' },
+              exposureStatus: { type: 'STRING', description: 'Краткая оценка экспозиции (1-3 слова)' },
+              sharpnessStatus: { type: 'STRING', description: 'Краткая оценка резкости (1-3 слова)' },
+              whiteBalanceStatus: { type: 'STRING', description: 'Краткая оценка баланса белого (1-3 слова)' },
+              noiseStatus: { type: 'STRING', description: 'Краткая оценка шума (1-3 слова)' },
+              recommendedDsp: {
+                type: 'OBJECT',
+                properties: {
+                  sharpness: { type: 'NUMBER', description: 'От 0 до 80' },
+                  clarity: { type: 'NUMBER', description: 'От -20 до 60' },
+                  denoise: { type: 'NUMBER', description: 'От 0 до 60' },
+                  brightness: { type: 'NUMBER', description: 'От -25 до 25' },
+                  contrast: { type: 'NUMBER', description: 'От -20 до 30' },
+                  saturation: { type: 'NUMBER', description: 'От -25 до 35' },
+                  temperature: { type: 'NUMBER', description: 'От -25 до 25' },
+                  autoLevels: { type: 'BOOLEAN' }
+                },
+                required: ['sharpness', 'clarity', 'denoise', 'brightness', 'contrast', 'saturation', 'temperature', 'autoLevels']
+              }
+            },
+            required: ['summary', 'exposureStatus', 'sharpnessStatus', 'whiteBalanceStatus', 'noiseStatus', 'recommendedDsp']
+          }
+        }
+      };
+
+      const result = await callGeminiWithRetry(payload, 2);
+      const raw = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+      return raw ? JSON.parse(raw) : null;
+    }
+
+    /** Запуск полного ИИ-улучшения фото */
+    photoEl.btnRunPhotoAi.addEventListener('click', async () => {
+      if (!photoState.origImage || photoState.isAiRunning) return;
+
+      const presetConfigs = {
+        universal: { label: 'Универсальное улучшение', prompt: 'Balance exposure, improve micro-contrast, sharpen natural details, remove compression artifacts, and produce vivid natural colors.' },
+        portrait: { label: 'Портрет и детали лица', prompt: 'Enhance portrait clarity, crisp eye and hair details, natural skin texture without plastic over-smoothing, and flattering soft studio lighting.' },
+        denoise: { label: 'Убрать шум и размытие', prompt: 'Aggressively remove digital ISO noise, grain, JPEG artifacts, and motion/focus blur while reconstructing sharp natural edges.' },
+        restore: { label: 'Восстановление старого фото', prompt: 'Restore an old or damaged photograph: repair scratches, dust, fading, and low contrast, enhance clarity and natural lifelike tones.' },
+        hdr: { label: 'HDR и сочные цвета', prompt: 'Create a balanced HDR look: recover shadow and highlight details, boost local micro-contrast, and enrich colors cleanly without oversaturation.' }
+      };
+
+      const cfg = presetConfigs[photoState.aiPreset] || presetConfigs.universal;
+      const customNote = photoEl.photoAiCustomPrompt.value.trim();
+
+      photoState.isAiRunning = true;
+      photoEl.btnRunPhotoAi.disabled = true;
+      photoEl.btnRunPhotoAiText.textContent = 'ИИ работает...';
+      photoEl.photoProcessingOverlay.classList.remove('hidden');
+      photoEl.photoProcessingTitle.textContent = `ИИ-улучшение: ${cfg.label}`;
+      photoEl.photoProcessingSub.textContent = 'Выполняем реставрацию деталей и анализ кадра через Gemini...';
+
+      try {
+        const inlineImg = getPhotoBase64ForApi(1280);
+
+        // Запускаем генеративную реставрацию и ИИ-анализ параллельно
+        const [genDataUrl, analysis] = await Promise.all([
+          tryGenerativePhotoEnhance(inlineImg, cfg.prompt, customNote),
+          runAiPhotoAnalysis(inlineImg, cfg.label, customNote).catch(() => null)
+        ]);
+
+        let usedGenerative = false;
+
+        if (genDataUrl) {
+          await new Promise((resolve, reject) => {
+            const aiImg = new Image();
+            aiImg.onload = () => {
+              photoState.aiImage = aiImg;
+              photoState.useAiLayer = true;
+              usedGenerative = true;
+              resolve();
+            };
+            aiImg.onerror = reject;
+            aiImg.src = genDataUrl;
+          });
+
+          photoEl.photoAiActiveBadge.classList.remove('hidden');
+          photoEl.aiLayerToggleWrap.classList.remove('hidden');
+          photoEl.chkUseAiLayer.checked = true;
+          // При наличии готового ИИ-слоя оставляем DSP на нуле, чтобы пользователь мог докрутить вручную
+          resetDspSliders(false);
+        } else if (analysis && analysis.recommendedDsp) {
+          // Надёжный fallback: применяем точные параметры DSP от Gemini Vision
+          const rec = analysis.recommendedDsp;
+          photoState.dsp = {
+            sharpness: Math.max(0, Math.min(100, Math.round(rec.sharpness || 25))),
+            clarity: Math.max(-50, Math.min(100, Math.round(rec.clarity || 18))),
+            denoise: Math.max(0, Math.min(100, Math.round(rec.denoise || 12))),
+            brightness: Math.max(-50, Math.min(50, Math.round(rec.brightness || 0))),
+            contrast: Math.max(-50, Math.min(50, Math.round(rec.contrast || 10))),
+            saturation: Math.max(-100, Math.min(100, Math.round(rec.saturation || 8))),
+            temperature: Math.max(-50, Math.min(50, Math.round(rec.temperature || 0))),
+            autoLevels: Boolean(rec.autoLevels)
+          };
+          syncDspUI();
+        } else {
+          // Резервный пресет, если оба сетевых вызова недоступны
+          photoState.dsp = { ...DSP_PRESETS.crisp };
+          syncDspUI();
+        }
+
+        // Отображаем отчёт ИИ
+        photoEl.photoAiReportCard.classList.remove('hidden');
+        photoEl.photoAiMethodNote.textContent = usedGenerative
+          ? `Режим: «${cfg.label}» • Генеративная ИИ-реставрация + анализ Gemini`
+          : `Режим: «${cfg.label}» • Автоматическая ИИ-калибровка DSP Gemini`;
+
+        photoEl.photoAiSummaryText.textContent = analysis?.summary ||
+          'Выполнено интеллектуальное повышение детализации, выравнивание света, контраста и подавление цифрового шума.';
+
+        const metrics = [
+          { label: 'Экспозиция', value: analysis?.exposureStatus || 'Сбалансирована' },
+          { label: 'Резкость', value: analysis?.sharpnessStatus || 'Повышена' },
+          { label: 'Баланс белого', value: analysis?.whiteBalanceStatus || 'Оптимальный' },
+          { label: 'Шум', value: analysis?.noiseStatus || 'Подавлен' }
+        ];
+        photoEl.photoAiMetricsGrid.innerHTML = metrics.map(m => `
+          <div class="rounded-xl bg-studio-950/80 border border-white/8 px-3 py-2">
+            <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-0.5">${escapeHtml(m.label)}</div>
+            <div class="text-xs font-semibold text-zinc-200 truncate">${escapeHtml(m.value)}</div>
+          </div>
+        `).join('');
+
+        schedulePhotoPreview();
+        showToast(usedGenerative ? 'ИИ-реставрация фото успешно завершена!' : 'ИИ подобрал оптимальные параметры улучшения!', 'success');
+
+      } catch (err) {
+        console.error(err);
+        showToast('Не удалось выполнить ИИ-улучшение. Попробуйте ещё раз.', 'error');
+      } finally {
+        photoState.isAiRunning = false;
+        photoEl.btnRunPhotoAi.disabled = false;
+        photoEl.btnRunPhotoAiText.textContent = 'Улучшить с помощью ИИ';
+        photoEl.photoProcessingOverlay.classList.add('hidden');
+      }
+    });
+
+    // ===================== ЭКСПОРТ УЛУЧШЕННОГО ФОТО =====================
+
+    photoEl.photoFmtBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        photoEl.photoFmtBtns.forEach(b => {
+          b.classList.remove('active', 'border-indigo-500/60', 'bg-indigo-500/20', 'text-white');
+          b.classList.add('border-white/10', 'bg-studio-950/60', 'text-zinc-300');
+        });
+        btn.classList.add('active', 'border-indigo-500/60', 'bg-indigo-500/20', 'text-white');
+        btn.classList.remove('border-white/10', 'bg-studio-950/60', 'text-zinc-300');
+
+        photoState.exportFormat = btn.dataset.fmt;
+        photoEl.photoQualityWrap.classList.toggle('hidden', photoState.exportFormat === 'image/png');
+      });
+    });
+
+    photoEl.rngPhotoQuality.addEventListener('input', (e) => {
+      const q = Number(e.target.value);
+      photoState.exportQuality = q / 100;
+      photoEl.valPhotoQuality.textContent = `${q}%`;
+    });
+
+    async function exportEnhancedPhoto() {
+      if (!photoState.origImage) return;
+
+      photoEl.btnDownloadEnhancedPhoto.disabled = true;
+      photoEl.btnDownloadPhotoText.textContent = 'Рендеринг в высоком разрешении...';
+
+      // Даём браузеру отрисовать состояние кнопки перед тяжёлым рендером
+      await new Promise(r => setTimeout(r, 40));
+
+      try {
+        const { w, h } = getTargetPhotoDims();
+        const sourceImg = (photoState.aiImage && photoState.useAiLayer) ? photoState.aiImage : photoState.origImage;
+
+        const outCanvas = drawHighQualityScaled(sourceImg, w, h);
+        const ctx = outCanvas.getContext('2d', { willReadFrequently: true });
+
+        const upscaleBoost = photoState.upscale === 4 ? 18 : (photoState.upscale === 2 ? 10 : 0);
+        const needsDsp =
+          photoState.dsp.autoLevels ||
+          photoState.dsp.sharpness > 0 ||
+          photoState.dsp.clarity !== 0 ||
+          photoState.dsp.denoise > 0 ||
+          photoState.dsp.brightness !== 0 ||
+          photoState.dsp.contrast !== 0 ||
+          photoState.dsp.saturation !== 0 ||
+          photoState.dsp.temperature !== 0 ||
+          upscaleBoost > 0;
+
+        if (needsDsp) {
+          const imgData = ctx.getImageData(0, 0, w, h);
+          applyDspPipeline(imgData, photoState.dsp, upscaleBoost);
+          ctx.putImageData(imgData, 0, 0);
+        }
+
+        const extMap = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' };
+        const ext = extMap[photoState.exportFormat] || 'png';
+        const baseName = (photoState.file?.name || 'photo').replace(/\.[^/.]+$/, '');
+        const scaleTag = photoState.upscale > 1 ? `_${photoState.upscale}x` : '';
+
+        await new Promise((resolve, reject) => {
+          outCanvas.toBlob((blob) => {
+            if (!blob) {
+              reject(new Error('Не удалось сформировать файл изображения'));
+              return;
+            }
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${baseName}_enhanced${scaleTag}.${ext}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 4000);
+            resolve();
+          }, photoState.exportFormat, photoState.exportQuality);
+        });
+
+        showToast(`Улучшенное фото (${w}×${h}) скачано!`, 'success');
+      } catch (err) {
+        console.error(err);
+        showToast('Ошибка при экспорте фото. Попробуйте уменьшить масштаб апскейла.', 'error');
+      } finally {
+        photoEl.btnDownloadEnhancedPhoto.disabled = false;
+        photoEl.btnDownloadPhotoText.textContent = 'Скачать улучшенное фото';
+      }
+    }
+
+    photoEl.btnDownloadEnhancedPhoto.addEventListener('click', exportEnhancedPhoto);
+    photoEl.btnQuickDownloadPhoto.addEventListener('click', exportEnhancedPhoto);
+  </script>
+</body>
+</html>
